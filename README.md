@@ -11,6 +11,9 @@
 
 ---
 
+<img width="3760" height="696" alt="principal" src="https://github.com/user-attachments/assets/284f1a8a-4e8c-4f6d-bf15-caaf828ee5b9" />
+
+
 ## ✨ Características principales
 
 - **Vista continua de 24 horas (00:00 - 24:00)**: Escala temporal completa con marcas por hora y subdivisiones de 15 minutos.

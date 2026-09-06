@@ -1,8 +1,10 @@
 # 🕒 Family Day Planner
 
 > **Planificador visual familiar de las 24 horas del día**, estilo diagrama de Gantt diario, diseñado para repartir y organizar visualmente las actividades de cada miembro de la familia.
+> 
+> *A visual, 24-hour daily Gantt-style family planner to organize and balance activities across family members.*
 
-![Licencia](https://img.shields.io/badge/licencia-MIT-blue.svg)
+[![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
 ![React](https://img.shields.io/badge/React-19-61dafb.svg?logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178c6.svg?logo=typescript)
 ![Vite](https://img.shields.io/badge/Vite-6.2-646cff.svg?logo=vite)
@@ -11,46 +13,49 @@
 
 ---
 
-<img width="3760" height="696" alt="principal" src="https://github.com/user-attachments/assets/284f1a8a-4e8c-4f6d-bf15-caaf828ee5b9" />
+**Idiomas / Languages:** [Español](#-español) • [English](#-english)
 
+---
+
+# 🇪🇸 Español
 
 ## ✨ Características principales
 
-- **Vista continua de 24 horas (00:00 - 24:00)**: Escala temporal completa con marcas por hora y subdivisiones de 15 minutos.
-- **Líneas familiares personalizables**: Cada persona tiene su propia fila con color identificativo y control de visibilidad.
+- **Vista continua de 24 horas (00:00 - 24:00)**: Escala temporal completa con marcas horarias y cuadrícula de 15 minutos.
+- **Líneas familiares personalizables**: Cada miembro de la familia cuenta con su propia línea temporal, color identificativo, botones de reordenación vertical (`▲` y `▼`) y conmutador de visibilidad.
 - **Manipulación interactiva fluida**:
-  - **Crear por arrastre**: Haz clic y arrastra sobre cualquier zona libre de una fila para crear una actividad de inmediato.
-  - **Mover actividades**: Desplaza cualquier bloque a lo largo del día manteniendo su duración exacta.
-  - **Redimensionar bilateralmente**: Ajusta la hora inicial o final desde los extremos izquierdo y derecho.
-  - **Ajuste automático a 15 min (`snap-to-grid`)**: Todos los horarios se alinean con precisión a intervalos de 15 minutos (duración mínima 15 min).
-- **Gestión inteligente de solapamientos**: Cuando varias actividades coinciden en horario dentro de una misma persona, la fila se expande dinámicamente y las actividades se apilan en sub-carriles sin ocultarse entre sí.
+  - **Crear por arrastre**: Haz clic y arrastra sobre cualquier zona libre de una fila para crear una actividad con ajuste automático a 15 min y apertura inmediata del editor.
+  - **Mover actividades**: Arrastra horizontalmente cualquier bloque conservando su duración exacta dentro de los límites del día.
+  - **Redimensionar bilateralmente**: Ajusta la hora inicial o final tirando de los extremos izquierdo y derecho (duración mínima 15 min).
+  - **Ajuste a cuadrícula (`snap-to-grid`)**: Todos los horarios se ajustan a incrementos de 15 minutos.
+- **Gestión inteligente de solapamientos**: Si coinciden varias actividades en una misma persona, la fila se expande verticalmente y los bloques se apilan en sub-carriles sin ocultarse entre sí.
 - **Editor completo de actividades**:
   - Título y notas / comentarios opcionales.
-  - Selector de horarios (`HH:MM`).
+  - Ajuste de horas de inicio y fin (`HH:MM`).
   - Selector con los 8 colores de la paleta **Flexoki**.
   - Botón de eliminación con confirmación.
 - **Persistencia local 100% en el cliente (`Local-First`)**:
-  - Auto-guardado instantáneo en `localStorage` con esquema versionado.
-  - **Gestor multidía**: Crea nuevos días, cambia entre días guardados, duplica días como plantillas o elimina días antiguos.
-  - **Copias de seguridad JSON**: Exporta e importa tus planificaciones en archivos `.json` en cualquier momento.
+  - Auto-guardado instantáneo en `localStorage` bajo clave versionada.
+  - **Gestor multidía**: Crea nuevos días, cambia de día activo, duplica días como plantillas o elimina días no deseados.
+  - **Copias de seguridad JSON**: Exporta e importa archivos `.json` para copias de seguridad o sincronización manual entre dispositivos.
 - **Exportación multipropósito**:
-  - **Impresión / PDF en A4 apaisado**: Vista adaptada al ancho del papel con tabla de notas y comentarios al pie.
-  - **Descarga de imagen PNG**: Generación directa de imagen en alta resolución (Retina 2x).
-- **PWA e instalación local**: Compatible con Progressive Web App para instalar como aplicación nativa de escritorio y funcionar 100% sin conexión a internet.
+  - **Impresión / PDF en A4 apaisado**: Diseño adaptado al ancho del papel con tabla de notas y comentarios al pie.
+  - **Descarga de imagen PNG**: Generador de imagen en alta resolución (Retina 2x) mediante Canvas.
+- **PWA e instalación local**: Compatible con Progressive Web App para instalar en el sistema operativo y funcionar 100% sin conexión a internet.
 
 ---
 
 ## 🎨 Paleta de colores Flexoki
 
-La aplicación utiliza la paleta de colores [Flexoki](https://github.com/kepano/flexoki) de Stéphane Martin (@kepano), optimizada para máxima legibilidad y confort visual tanto en pantalla como en papel impreso:
+La aplicación utiliza la paleta de colores [Flexoki](https://github.com/kepano/flexoki) de Stéphane Martin (@kepano):
 
-| Color | Tono | Uso habitual |
+| Color | Tono | Uso habitual sugerido |
 | :--- | :--- | :--- |
 | **Azul** (`#205EA6`) | Principal / Trabajo | Trabajo, oficina, tareas prioritarias |
 | **Morado** (`#5E409D`) | Personal / Salud | Consultas médicas, autocuidado |
 | **Verde** (`#66800B`) | Descanso / Naturaleza | Dormir, paseos, descanso |
 | **Amarillo** (`#AD8301`) | Educación / Familia | Colegio, deberes, comidas en familia |
-| **Naranja** (`#BC5215`) | Hogar / Recados | Compras, tareas domésticas, llamadas |
+| **Naranja** (`#BC5215`) | Hogar / Recados | Compras, tareas domésticas, recados |
 | **Cian** (`#24837B`) | Deporte / Extraescolar | Gimnasio, natación, actividades |
 | **Rojo** (`#AF3029`) | Ocio / Urgente | Juegos, eventos, recordatorios |
 | **Magenta** (`#A02F6F`) | Social / Especial | Citas, reuniones, salidas |
@@ -105,28 +110,20 @@ family-day-planner/
 ## 🚀 Instalación y ejecución local
 
 ### Prerrequisitos
-- **Node.js** (versión 18 o superior recomendada)
-- **npm**
+- **Node.js** (v18+) y **npm**
 
-### 1. Clonar el repositorio
 ```bash
-git clone https://github.com/TU_USUARIO/family-day-planner.git
-cd family-day-planner
-```
+# 1. Clonar el repositorio
+git clone https://github.com/clacasta/Planner.git
+cd Planner
 
-### 2. Instalar dependencias
-```bash
+# 2. Instalar dependencias
 npm install
-```
 
-### 3. Iniciar el servidor de desarrollo
-```bash
+# 3. Iniciar servidor de desarrollo
 npm run dev
-```
-Abre en tu navegador la dirección indicada (por defecto [http://localhost:5173](http://localhost:5173)).
 
-### 4. Compilar para producción
-```bash
+# 4. Compilar para producción
 npm run build
 ```
 
@@ -134,14 +131,87 @@ npm run build
 
 ## 🔒 Privacidad y funcionamiento Offline
 
-Esta aplicación es **100% estática y de ejecución local**. 
+Esta aplicación es **100% estática y de ejecución local**.
 - No requiere cuentas de usuario ni registro.
-- No envía ningún dato a servidores externos.
-- Todos los datos se almacenan exclusivamente en el almacenamiento local de tu propio navegador.
-- Puedes exportar e importar copias de seguridad en formato `.json` cuando quieras transferir tus datos a otro ordenador o dispositivo.
+- No envía datos a servidores externos.
+- Todos los datos se almacenan exclusivamente en el almacenamiento local de tu navegador.
 
 ---
 
-## 📄 Licencia
+# 🇬🇧 English
 
-Distribuido bajo la Licencia **MIT**. Consulta el archivo `LICENSE` para más información.
+## ✨ Key Features
+
+- **Continuous 24-Hour View (00:00 - 24:00)**: Full daily timeline with hourly indicators and 15-minute grid lines.
+- **Customizable Family Rows**: Each family member gets a dedicated timeline row, color accent, vertical reordering buttons (`▲` and `▼`), and visibility toggle.
+- **Smooth Interactive Controls**:
+  - **Drag-to-Create**: Click and drag on any empty timeline slot to generate a new block with instant 15-minute snap and editor popup.
+  - **Move Activities**: Drag activity blocks horizontally while preserving their exact duration within 00:00–24:00 bounds.
+  - **Bilateral Resizing**: Adjust start or end times by dragging the left or right edges (minimum 15 min duration).
+  - **15-Minute Grid Snap**: Precision snapping for all time adjustments.
+- **Smart Collision & Overlap Stacking**: When multiple activities overlap in time for a single person, the row dynamically expands into sub-lanes so no activity is hidden behind another.
+- **Full Activity Editor**:
+  - Title and optional notes/comments.
+  - Exact start and end time inputs (`HH:MM`).
+  - 8-color **Flexoki** palette selector.
+  - Deletion button with confirmation.
+- **100% Local-First Persistence**:
+  - Automatic, reactive saving to browser `localStorage` with versioned schema.
+  - **Multi-Day Manager**: Create new days, switch active days, duplicate days as templates, or delete old ones.
+  - **JSON Backup & Restore**: Export and import `.json` files to backup or transfer data between computers.
+- **Multi-Format Export**:
+  - **Print / PDF (A4 Landscape)**: Formatted for A4 paper with a dedicated footer table for notes and comments.
+  - **High-Definition PNG Download**: Direct Canvas-rendered 2x Retina PNG export.
+- **PWA & Offline Ready**: Progressive Web App ready for native desktop installation and 100% offline usage.
+
+---
+
+## 🎨 Flexoki Color Palette
+
+Styled with kepano's [Flexoki](https://github.com/kepano/flexoki) color scheme for high contrast and visual clarity on screens and printed paper:
+
+| Color | Hex | Common Usage |
+| :--- | :--- | :--- |
+| **Blue** (`#205EA6`) | Primary / Work | Work, office, focus tasks |
+| **Purple** (`#5E409D`) | Personal / Health | Medical appointments, self-care |
+| **Green** (`#66800B`) | Rest / Nature | Sleep, walks, downtime |
+| **Yellow** (`#AD8301`) | School / Family | School, homework, family meals |
+| **Orange** (`#BC5215`) | Home / Errands | Groceries, chores, phone calls |
+| **Cyan** (`#24837B`) | Sports / Activities | Gym, swimming, extracurriculars |
+| **Red** (`#AF3029`) | Leisure / Urgent | Games, deadlines, reminders |
+| **Magenta** (`#A02F6F`) | Social / Special | Dinners, gatherings, outings |
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+- **Node.js** (v18+) and **npm**
+
+```bash
+# 1. Clone repository
+git clone https://github.com/clacasta/Planner.git
+cd Planner
+
+# 2. Install dependencies
+npm install
+
+# 3. Start local development server
+npm run dev
+
+# 4. Build for production
+npm run build
+```
+
+---
+
+## 🔒 Privacy & Local-First Philosophy
+
+- **Zero trackers, zero external servers**: All your family schedules stay in your browser's local storage.
+- **Full ownership**: Export all data anytime as portable JSON files.
+
+---
+
+## 📄 License
+
+Distributed under the **MIT License**. See `LICENSE` for more information.

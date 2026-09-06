@@ -98,6 +98,25 @@ export function App() {
     }));
   };
 
+  // Reordenación vertical de miembros familiares
+  const handleMoveRow = (rowId: string, direction: 'up' | 'down') => {
+    updateActivePlan((p) => {
+      const index = p.rows.findIndex((r) => r.id === rowId);
+      if (index === -1) return p;
+      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= p.rows.length) return p;
+
+      const newRows = [...p.rows];
+      const [movedRow] = newRows.splice(index, 1);
+      newRows.splice(targetIndex, 0, movedRow);
+
+      return {
+        ...p,
+        rows: newRows,
+      };
+    });
+  };
+
   const handleAddRow = () => {
     const name = window.prompt('Nombre del nuevo miembro familiar:');
     if (!name || !name.trim()) return;
@@ -372,6 +391,7 @@ export function App() {
         plan={currentPlan}
         pixelsPerHour={pixelsPerHour}
         rowHeaderWidth={200}
+        onMoveRow={handleMoveRow}
         onToggleRowVisibility={handleToggleRowVisibility}
         onAddActivity={handleAddActivityManual}
         onSelectActivity={handleSelectActivity}
@@ -403,7 +423,7 @@ export function App() {
           <strong>{totalActivities}</strong> actividades en <em>{currentPlan.name}</em>
         </div>
         <div>
-          <span>💾 Guardado local • 📱 PWA Offline • 🖨️ A4 & PNG</span>
+          <span>↕️ Flechas en cada línea para reordenar personas</span>
         </div>
       </footer>
 

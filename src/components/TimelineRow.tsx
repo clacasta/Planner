@@ -3,12 +3,15 @@ import { TimelineRow as TimelineRowType, Activity } from '../domain/types';
 import { calculateLayoutActivities } from '../domain/collisions';
 import { pixelsToMinutes, snapToGrid, clampMinutes, minutesToPixels, formatTime } from '../domain/time';
 import { ActivityBlock } from './ActivityBlock';
-import { Eye, EyeOff, Plus } from 'lucide-react';
+import { Eye, EyeOff, Plus, ChevronUp, ChevronDown } from 'lucide-react';
 
 interface TimelineRowProps {
   row: TimelineRowType;
   pixelsPerHour: number;
   rowHeaderWidth: number;
+  isFirst?: boolean;
+  isLast?: boolean;
+  onMoveRow?: (rowId: string, direction: 'up' | 'down') => void;
   onToggleVisibility?: (rowId: string) => void;
   onAddActivity?: (rowId: string) => void;
   onSelectActivity?: (activity: Activity, rowId: string) => void;
@@ -21,6 +24,9 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({
   row,
   pixelsPerHour,
   rowHeaderWidth,
+  isFirst = false,
+  isLast = false,
+  onMoveRow,
   onToggleVisibility,
   onAddActivity,
   onSelectActivity,
@@ -105,6 +111,22 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({
           <div className="row-actions">
             <button
               className="icon-btn"
+              disabled={isFirst}
+              onClick={() => onMoveRow?.(row.id, 'up')}
+              title="Mover arriba"
+            >
+              <ChevronUp size={15} />
+            </button>
+            <button
+              className="icon-btn"
+              disabled={isLast}
+              onClick={() => onMoveRow?.(row.id, 'down')}
+              title="Mover abajo"
+            >
+              <ChevronDown size={15} />
+            </button>
+            <button
+              className="icon-btn"
               onClick={() => onToggleVisibility?.(row.id)}
               title="Mostrar línea"
             >
@@ -129,6 +151,24 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({
           <span className="row-name">{row.name}</span>
         </div>
         <div className="row-actions">
+          {/* Botones de reordenación vertical */}
+          <button
+            className="icon-btn"
+            disabled={isFirst}
+            onClick={() => onMoveRow?.(row.id, 'up')}
+            title="Mover persona arriba"
+          >
+            <ChevronUp size={15} />
+          </button>
+          <button
+            className="icon-btn"
+            disabled={isLast}
+            onClick={() => onMoveRow?.(row.id, 'down')}
+            title="Mover persona abajo"
+          >
+            <ChevronDown size={15} />
+          </button>
+
           <button
             className="icon-btn"
             onClick={() => onAddActivity?.(row.id)}

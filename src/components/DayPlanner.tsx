@@ -7,6 +7,7 @@ interface DayPlannerProps {
   plan: DayPlan;
   pixelsPerHour: number;
   rowHeaderWidth?: number;
+  onMoveRow: (rowId: string, direction: 'up' | 'down') => void;
   onToggleRowVisibility: (rowId: string) => void;
   onAddActivity: (rowId: string) => void;
   onSelectActivity: (activity: Activity, rowId: string) => void;
@@ -19,6 +20,7 @@ export const DayPlanner: React.FC<DayPlannerProps> = ({
   plan,
   pixelsPerHour,
   rowHeaderWidth = 200,
+  onMoveRow,
   onToggleRowVisibility,
   onAddActivity,
   onSelectActivity,
@@ -35,13 +37,16 @@ export const DayPlanner: React.FC<DayPlannerProps> = ({
           rowHeaderWidth={rowHeaderWidth}
         />
 
-        {/* Filas de miembros familiares */}
-        {plan.rows.map((row) => (
+        {/* Filas de miembros familiares con soporte de reordenación */}
+        {plan.rows.map((row, index) => (
           <TimelineRow
             key={row.id}
             row={row}
             pixelsPerHour={pixelsPerHour}
             rowHeaderWidth={rowHeaderWidth}
+            isFirst={index === 0}
+            isLast={index === plan.rows.length - 1}
+            onMoveRow={onMoveRow}
             onToggleVisibility={onToggleRowVisibility}
             onAddActivity={onAddActivity}
             onSelectActivity={onSelectActivity}

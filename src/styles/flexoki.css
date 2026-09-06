@@ -1,0 +1,63 @@
+/* Flexoki Color Scheme (kepano/flexoki) */
+:root {
+  /* Base & Neutrals (Light Mode / Paper) */
+  --fx-paper: #FFFCF0;
+  --fx-base-50: #F2EFDF;
+  --fx-base-100: #E6E4D9;
+  --fx-base-150: #DAD8CE;
+  --fx-base-200: #CECDC3;
+  --fx-base-300: #B7B5AC;
+  --fx-base-400: #9F9D96;
+  --fx-base-500: #878580;
+  --fx-base-600: #6F6E69;
+  --fx-base-700: #575653;
+  --fx-base-800: #403E3C;
+  --fx-base-850: #343331;
+  --fx-base-900: #282726;
+  --fx-base-950: #1C1B1A;
+  --fx-black: #100F0F;
+
+  /* UI Tokens */
+  --bg-app: var(--fx-paper);
+  --bg-surface: #FFFFFF;
+  --bg-surface-alt: var(--fx-base-50);
+  --bg-hover: var(--fx-base-100);
+  --border-subtle: var(--fx-base-150);
+  --border-strong: var(--fx-base-300);
+  --text-primary: var(--fx-base-900);
+  --text-secondary: var(--fx-base-600);
+  --text-muted: var(--fx-base-400);
+
+  /* Flexoki Primary Accents */
+  --fx-red: #AF3029;
+  --fx-red-light: #FBECEB;
+  --fx-red-border: #E89E9B;
+
+  --fx-orange: #BC5215;
+  --fx-orange-light: #FCF0E8;
+  --fx-orange-border: #F0B38F;
+
+  --fx-yellow: #AD8301;
+  --fx-yellow-light: #FAF5E1;
+  --fx-yellow-border: #E9D27B;
+
+  --fx-green: #66800B;
+  --fx-green-light: #F2F6E3;
+  --fx-green-border: #BFD384;
+
+  --fx-cyan: #24837B;
+  --fx-cyan-light: #E6F5F3;
+  --fx-cyan-border: #91D3CD;
+
+  --fx-blue: #205EA6;
+  --fx-blue-light: #EBF2FA;
+  --fx-blue-border: #95BEE8;
+
+  --fx-purple: #5E409D;
+  --fx-purple-light: #F2EEFB;
+  --fx-purple-border: #BAA6E8;
+
+  --fx-magenta: #A02F6F;
+  --fx-magenta-light: #FAECF4;
+  --fx-magenta-border: #E69DCD;
+}

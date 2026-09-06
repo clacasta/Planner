@@ -1,0 +1,119 @@
+/* Estilos específicos para impresión en papel A4 apaisado */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 8mm;
+  }
+
+  body {
+    background-color: #ffffff !important;
+    color: #100F0F !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Ocultar elementos interactivos de la aplicación */
+  .app-header,
+  .app-actions,
+  .app-footer,
+  .modal-overlay,
+  .icon-btn,
+  .resize-handle,
+  .btn,
+  .row-actions {
+    display: none !important;
+  }
+
+  .app-container {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .planner-wrapper {
+    margin: 0 !important;
+    border: 1px solid #CECDC3 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+  }
+
+  .planner-scroll-container {
+    overflow: visible !important;
+  }
+
+  /* Cabecera específica para impresión */
+  .print-only-header {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8mm;
+    padding-bottom: 2mm;
+    border-bottom: 2px solid #282726;
+  }
+
+  .print-title {
+    font-size: 16pt;
+    font-weight: 700;
+  }
+
+  .print-date {
+    font-size: 11pt;
+    color: #575653;
+  }
+
+  /* Línea temporal y bloques */
+  .timeline-header-row {
+    position: static !important;
+    background-color: #F2EFDF !important;
+  }
+
+  .row-header {
+    position: static !important;
+    box-shadow: none !important;
+  }
+
+  .activity-block {
+    box-shadow: none !important;
+    cursor: default !important;
+  }
+
+  /* Sección inferior de notas para impresión */
+  .print-notes-section {
+    display: block !important;
+    margin-top: 6mm;
+    page-break-inside: avoid;
+  }
+
+  .print-notes-title {
+    font-size: 10pt;
+    font-weight: 700;
+    margin-bottom: 2mm;
+    border-bottom: 1px solid #CECDC3;
+    padding-bottom: 1mm;
+  }
+
+  .print-notes-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2mm 6mm;
+    font-size: 8.5pt;
+  }
+
+  .print-note-item {
+    display: flex;
+    gap: 2mm;
+  }
+
+  .print-note-time {
+    font-weight: 600;
+    color: #403E3C;
+    white-space: nowrap;
+  }
+}
+
+/* Ocultar elementos de impresión en pantalla */
+@media screen {
+  .print-only-header,
+  .print-notes-section {
+    display: none;
+  }
+}

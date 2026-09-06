@@ -1,0 +1,17 @@
+{
+  "name": "Family Day Planner - Planificador 24h",
+  "short_name": "DayPlanner",
+  "description": "Planificador visual familiar de 24 horas tipo Gantt",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFFCF0",
+  "theme_color": "#FFFCF0",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

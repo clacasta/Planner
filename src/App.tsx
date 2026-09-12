@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { DayPlan, Activity, FlexokiColorKey } from './domain/types';
-import { DEFAULT_PIXELS_PER_HOUR, formatTime } from './domain/time';
+import { DEFAULT_PIXELS_PER_HOUR, MIN_PIXELS_PER_HOUR, MAX_PIXELS_PER_HOUR, formatTime } from './domain/time';
 import { loadStorageData, saveStorageData } from './storage/localStorage';
 import { StorageData } from './storage/schema';
 import { AppHeader } from './components/AppHeader';
@@ -10,6 +10,13 @@ import { PlanManagerModal } from './components/PlanManagerModal';
 import { ExportMenuModal } from './components/ExportMenuModal';
 import './styles/app.css';
 import './export/print.css';
+
+// Breakpoint en px por debajo del cual aplicamos zoom compacto
+const MOBILE_BREAKPOINT = 768;
+// Zoom por defecto en móvil: cabe ~2.5 pantallas en lugar de ~2
+const MOBILE_DEFAULT_PIXELS_PER_HOUR = 45;
+
+const isMobileViewport = () => window.innerWidth < MOBILE_BREAKPOINT;
 
 const AVAILABLE_COLORS: FlexokiColorKey[] = [
   'blue',
@@ -24,8 +31,13 @@ const AVAILABLE_COLORS: FlexokiColorKey[] = [
 
 export function App() {
   const [storage, setStorage] = useState<StorageData>(() => loadStorageData());
-  const [pixelsPerHour, setPixelsPerHour] = useState<number>(DEFAULT_PIXELS_PER_HOUR);
-  
+  // Zoom inicial: 45 px/h en móvil (cabe el día entero en ~3 pantallas),
+  // 80 px/h en desktop (default original)
+  const [pixelsPerHour, setPixelsPerHour] = useState<number>(() =>
+    isMobileViewport() ? MOBILE_DEFAULT_PIXELS_PER_HOUR : DEFAULT_PIXELS_PER_HOUR
+  );
+  const [isMobile, setIsMobile] = useState<boolean>(() => isMobileViewport());
+
   // Modales
   const [isPlanManagerOpen, setIsPlanManagerOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -38,6 +50,30 @@ export function App() {
   useEffect(() => {
     saveStorageData(storage);
   }, [storage]);
+
+  // Detectar cambios de viewport (rotación, resize de ventana).
+  // Si entra en móvil y el zoom es el de escritorio, lo bajamos;
+  // si sale, lo subimos al default de escritorio. Esto NO sobrescribe
+  // el zoom que el usuario haya elegido manualmente.
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = isMobileViewport();
+      setIsMobile(mobile);
+      // Sólo ajustar si el zoom actual coincide con el "otro" default
+      // — así respetamos el zoom manual del usuario.
+      setPixelsPerHour((current) => {
+        if (mobile && current === DEFAULT_PIXELS_PER_HOUR) {
+          return MOBILE_DEFAULT_PIXELS_PER_HOUR;
+        }
+        if (!mobile && current === MOBILE_DEFAULT_PIXELS_PER_HOUR) {
+          return DEFAULT_PIXELS_PER_HOUR;
+        }
+        return current;
+      });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Atajos de teclado (Escape para cerrar modales)
   useEffect(() => {
@@ -78,15 +114,15 @@ export function App() {
   };
 
   const handleZoomIn = () => {
-    setPixelsPerHour((prev) => Math.min(180, prev + 15));
+    setPixelsPerHour((prev) => Math.min(MAX_PIXELS_PER_HOUR, prev + 15));
   };
 
   const handleZoomOut = () => {
-    setPixelsPerHour((prev) => Math.max(45, prev - 15));
+    setPixelsPerHour((prev) => Math.max(MIN_PIXELS_PER_HOUR, prev - 15));
   };
 
   const handleResetZoom = () => {
-    setPixelsPerHour(DEFAULT_PIXELS_PER_HOUR);
+    setPixelsPerHour(isMobile ? MOBILE_DEFAULT_PIXELS_PER_HOUR : DEFAULT_PIXELS_PER_HOUR);
   };
 
   const handleToggleRowVisibility = (rowId: string) => {

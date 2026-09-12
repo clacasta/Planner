@@ -1,5 +1,7 @@
 export const TOTAL_MINUTES_IN_DAY = 1440; // 24 * 60
 export const DEFAULT_PIXELS_PER_HOUR = 80;
+export const MIN_PIXELS_PER_HOUR = 30;   // Límite inferior (zoom out)
+export const MAX_PIXELS_PER_HOUR = 180;  // Límite superior (zoom in)
 export const DEFAULT_GRID_STEP = 15;
 
 /**

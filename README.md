@@ -4,12 +4,17 @@
 > 
 > *A visual, 24-hour daily Gantt-style family planner to organize and balance activities across family members.*
 
+[![Live Demo](https://img.shields.io/badge/Live_Demo-205EA6?style=for-the-badge&logo=github&logoColor=white)](https://clacasta.github.io/Planner/)
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
 ![React](https://img.shields.io/badge/React-19-61dafb.svg?logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178c6.svg?logo=typescript)
 ![Vite](https://img.shields.io/badge/Vite-6.2-646cff.svg?logo=vite)
 ![Paleta](https://img.shields.io/badge/Paleta-Flexoki-AD8301.svg)
 ![PWA](https://img.shields.io/badge/PWA-Offline_Ready-24837B.svg)
+
+---
+
+🟢 **[Abrir Family Day Planner →](https://clacasta.github.io/Planner/)** — desplegado con GitHub Pages, 100% local-first (tus datos se quedan en tu navegador).
 
 ---
 

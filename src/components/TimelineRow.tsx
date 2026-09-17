@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { TimelineRow as TimelineRowType, Activity } from '../domain/types';
 import { calculateLayoutActivities } from '../domain/collisions';
 import { pixelsToMinutes, snapToGrid, clampMinutes, minutesToPixels, formatTime } from '../domain/time';
+import { startPointerDrag } from '../domain/pointerDrag';
 import { ActivityBlock } from './ActivityBlock';
 import { Eye, EyeOff, Plus, ChevronUp, ChevronDown } from 'lucide-react';
 
@@ -19,6 +20,9 @@ interface TimelineRowProps {
   onResizeActivity?: (rowId: string, activityId: string, newStartMinutes: number, newEndMinutes: number) => void;
   onCreateActivity?: (rowId: string, startMinutes: number, endMinutes: number) => void;
 }
+
+/** Duración por defecto al crear con un toque en pantalla táctil. */
+const TOUCH_TAP_CREATE_MINUTES = 60;
 
 export const TimelineRow: React.FC<TimelineRowProps> = ({
   row,
@@ -47,54 +51,73 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({
   const rowHeight = Math.max(64, maxLanes * (baseLaneHeight + 6) + 12);
   const totalTrackWidth = 24 * pixelsPerHour;
 
-  // Manejo de creación por arrastre en la pista temporal
-  const handleTrackMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.button !== 0 || !trackRef.current) return;
+  /**
+   * Creación de actividades sobre la pista temporal.
+   *
+   * - Ratón: clic y arrastre (con previsualización) para definir la duración.
+   * - Dedo/lápiz: un toque crea una actividad de 1 h y abre el editor; el
+   *   arrastre con el dedo se deja al navegador para desplazar el día, que es
+   *   el gesto que el usuario espera en móvil.
+   */
+  const handleTrackPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!trackRef.current) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
 
     const rect = trackRef.current.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const initialMinute = snapToGrid(pixelsToMinutes(clickX, pixelsPerHour), 15);
-    const clampedInitial = clampMinutes(initialMinute, 0, 1425);
+    const minuteAt = (clientX: number) =>
+      clampMinutes(snapToGrid(pixelsToMinutes(clientX - rect.left, pixelsPerHour), 15), 0, 1425);
 
+    if (e.pointerType !== 'mouse') {
+      const startedAt = Date.now();
+      startPointerDrag(e, {
+        onMove: () => undefined,
+        onEnd: (_deltaX, moved) => {
+          const isTap = !moved && Date.now() - startedAt < 700;
+          if (!isTap) return;
+          const startMinutes = minuteAt(e.clientX);
+          const endMinutes = clampMinutes(startMinutes + TOUCH_TAP_CREATE_MINUTES, 15, 1440);
+          onCreateActivity?.(row.id, startMinutes, endMinutes);
+        },
+      });
+      return;
+    }
+
+    const clampedInitial = minuteAt(e.clientX);
     let currentDraft = {
       startMinutes: clampedInitial,
       endMinutes: clampedInitial + 15,
     };
-
     setCreationDraft(currentDraft);
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      if (!trackRef.current) return;
-      const currentRect = trackRef.current.getBoundingClientRect();
-      const currentX = moveEvent.clientX - currentRect.left;
-      const currentMin = snapToGrid(pixelsToMinutes(currentX, pixelsPerHour), 15);
+    startPointerDrag(e, {
+      onMove: (deltaX) => {
+        if (!trackRef.current) return;
+        const currentMin = snapToGrid(
+          pixelsToMinutes(e.clientX + deltaX - rect.left, pixelsPerHour),
+          15
+        );
 
-      if (currentMin >= clampedInitial) {
-        currentDraft = {
-          startMinutes: clampedInitial,
-          endMinutes: clampMinutes(Math.max(clampedInitial + 15, currentMin), 15, 1440),
-        };
-      } else {
-        currentDraft = {
-          startMinutes: clampMinutes(currentMin, 0, clampedInitial - 15),
-          endMinutes: clampedInitial,
-        };
-      }
-      setCreationDraft(currentDraft);
-    };
-
-    const handleMouseUp = () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-
-      if (currentDraft && currentDraft.endMinutes - currentDraft.startMinutes >= 15) {
-        onCreateActivity?.(row.id, currentDraft.startMinutes, currentDraft.endMinutes);
-      }
-      setCreationDraft(null);
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+        if (currentMin >= clampedInitial) {
+          currentDraft = {
+            startMinutes: clampedInitial,
+            endMinutes: clampMinutes(Math.max(clampedInitial + 15, currentMin), 15, 1440),
+          };
+        } else {
+          currentDraft = {
+            startMinutes: clampMinutes(currentMin, 0, clampedInitial - 15),
+            endMinutes: clampedInitial,
+          };
+        }
+        setCreationDraft(currentDraft);
+      },
+      onEnd: (_deltaX, moved) => {
+        if (moved && currentDraft.endMinutes - currentDraft.startMinutes >= 15) {
+          onCreateActivity?.(row.id, currentDraft.startMinutes, currentDraft.endMinutes);
+        }
+        setCreationDraft(null);
+      },
+      onCancel: () => setCreationDraft(null),
+    });
   };
 
   if (!row.visible) {
@@ -195,7 +218,7 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({
           minWidth: `${totalTrackWidth}px`,
           height: `${rowHeight}px`,
         }}
-        onMouseDown={handleTrackMouseDown}
+        onPointerDown={handleTrackPointerDown}
       >
         {/* Cuadrícula de fondo por horas */}
         <div className="row-track-grid">

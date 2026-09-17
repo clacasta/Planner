@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { LayoutActivity } from '../domain/types';
 import { minutesToPixels, pixelsToMinutes, snapToGrid, formatTime, clampMinutes } from '../domain/time';
+import { startPointerDrag } from '../domain/pointerDrag';
 
 interface ActivityBlockProps {
   activity: LayoutActivity;
@@ -11,6 +12,13 @@ interface ActivityBlockProps {
   onResize?: (activityId: string, newStartMinutes: number, newEndMinutes: number) => void;
 }
 
+interface DragPreview {
+  startMinutes: number;
+  endMinutes: number;
+  isMoving: boolean;
+  isResizing: boolean;
+}
+
 export const ActivityBlock: React.FC<ActivityBlockProps> = ({
   activity,
   pixelsPerHour,
@@ -19,12 +27,7 @@ export const ActivityBlock: React.FC<ActivityBlockProps> = ({
   onMove,
   onResize,
 }) => {
-  const [dragPreview, setDragPreview] = useState<{
-    startMinutes: number;
-    endMinutes: number;
-    isMoving: boolean;
-    isResizing: boolean;
-  } | null>(null);
+  const [dragPreview, setDragPreview] = useState<DragPreview | null>(null);
 
   const currentStart = dragPreview ? dragPreview.startMinutes : activity.startMinutes;
   const currentEnd = dragPreview ? dragPreview.endMinutes : activity.endMinutes;
@@ -35,138 +38,103 @@ export const ActivityBlock: React.FC<ActivityBlockProps> = ({
   const top = activity.laneIndex * (baseLaneHeight + 6) + 6;
   const height = baseLaneHeight;
 
-  // Manejador de inicio de movimiento
-  const handleMouseDownMove = (e: React.MouseEvent) => {
-    if (e.button !== 0) return; // Solo clic izquierdo
+  // --- Mover el bloque completo (ratón, dedo o lápiz) ---
+  const handlePointerDownMove = (e: React.PointerEvent) => {
     e.stopPropagation();
 
-    const startClientX = e.clientX;
-    const initialStart = activity.startMinutes;
     const actDuration = activity.endMinutes - activity.startMinutes;
-    let hasMoved = false;
+    const initialStart = activity.startMinutes;
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      const deltaX = moveEvent.clientX - startClientX;
-      if (Math.abs(deltaX) > 4) {
-        hasMoved = true;
-      }
+    const computeStart = (deltaX: number) => {
       const deltaMinutes = pixelsToMinutes(deltaX, pixelsPerHour);
-      let newStart = snapToGrid(initialStart + deltaMinutes, 15);
-      
-      // Limitar dentro de [0, 1440 - duration]
-      newStart = clampMinutes(newStart, 0, 1440 - actDuration);
-      const newEnd = newStart + actDuration;
-
-      setDragPreview({
-        startMinutes: newStart,
-        endMinutes: newEnd,
-        isMoving: true,
-        isResizing: false,
-      });
+      const snapped = snapToGrid(initialStart + deltaMinutes, 15);
+      return clampMinutes(snapped, 0, 1440 - actDuration);
     };
 
-    const handleMouseUp = (upEvent: MouseEvent) => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-
-      const deltaX = upEvent.clientX - startClientX;
-      if (hasMoved && onMove) {
-        const deltaMinutes = pixelsToMinutes(deltaX, pixelsPerHour);
-        let finalStart = snapToGrid(initialStart + deltaMinutes, 15);
-        finalStart = clampMinutes(finalStart, 0, 1440 - actDuration);
-        onMove(activity.id, finalStart);
-      } else {
-        onSelect?.(activity);
-      }
-      setDragPreview(null);
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    startPointerDrag(e, {
+      onMove: (deltaX) => {
+        const newStart = computeStart(deltaX);
+        setDragPreview({
+          startMinutes: newStart,
+          endMinutes: newStart + actDuration,
+          isMoving: true,
+          isResizing: false,
+        });
+      },
+      onEnd: (deltaX, moved) => {
+        if (moved) {
+          const finalStart = computeStart(deltaX);
+          if (finalStart !== initialStart) onMove?.(activity.id, finalStart);
+        } else {
+          // Un clic/tap sin arrastre abre el editor.
+          onSelect?.(activity);
+        }
+        setDragPreview(null);
+      },
+      onCancel: () => setDragPreview(null),
+    });
   };
 
-  // Manejador de redimensionado izquierdo (inicio)
-  const handleMouseDownResizeLeft = (e: React.MouseEvent) => {
-    if (e.button !== 0) return;
+  // --- Redimensionar por el extremo izquierdo (hora inicial) ---
+  const handlePointerDownResizeLeft = (e: React.PointerEvent) => {
     e.stopPropagation();
 
-    const startClientX = e.clientX;
     const initialStart = activity.startMinutes;
     const fixedEnd = activity.endMinutes;
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      const deltaX = moveEvent.clientX - startClientX;
+    const computeStart = (deltaX: number) => {
       const deltaMinutes = pixelsToMinutes(deltaX, pixelsPerHour);
-      let newStart = snapToGrid(initialStart + deltaMinutes, 15);
-      newStart = clampMinutes(newStart, 0, fixedEnd - 15); // Al menos 15m
-
-      setDragPreview({
-        startMinutes: newStart,
-        endMinutes: fixedEnd,
-        isMoving: false,
-        isResizing: true,
-      });
+      const snapped = snapToGrid(initialStart + deltaMinutes, 15);
+      return clampMinutes(snapped, 0, fixedEnd - 15); // mínimo 15 min
     };
 
-    const handleMouseUp = (upEvent: MouseEvent) => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-
-      const deltaX = upEvent.clientX - startClientX;
-      const deltaMinutes = pixelsToMinutes(deltaX, pixelsPerHour);
-      let finalStart = snapToGrid(initialStart + deltaMinutes, 15);
-      finalStart = clampMinutes(finalStart, 0, fixedEnd - 15);
-
-      if (finalStart !== initialStart && onResize) {
-        onResize(activity.id, finalStart, fixedEnd);
-      }
-      setDragPreview(null);
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    startPointerDrag(e, {
+      onMove: (deltaX) => {
+        setDragPreview({
+          startMinutes: computeStart(deltaX),
+          endMinutes: fixedEnd,
+          isMoving: false,
+          isResizing: true,
+        });
+      },
+      onEnd: (deltaX, moved) => {
+        const finalStart = computeStart(deltaX);
+        if (moved && finalStart !== initialStart) onResize?.(activity.id, finalStart, fixedEnd);
+        setDragPreview(null);
+      },
+      onCancel: () => setDragPreview(null),
+    });
   };
 
-  // Manejador de redimensionado derecho (fin)
-  const handleMouseDownResizeRight = (e: React.MouseEvent) => {
-    if (e.button !== 0) return;
+  // --- Redimensionar por el extremo derecho (hora final) ---
+  const handlePointerDownResizeRight = (e: React.PointerEvent) => {
     e.stopPropagation();
 
-    const startClientX = e.clientX;
-    const initialEnd = activity.endMinutes;
     const fixedStart = activity.startMinutes;
+    const initialEnd = activity.endMinutes;
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      const deltaX = moveEvent.clientX - startClientX;
+    const computeEnd = (deltaX: number) => {
       const deltaMinutes = pixelsToMinutes(deltaX, pixelsPerHour);
-      let newEnd = snapToGrid(initialEnd + deltaMinutes, 15);
-      newEnd = clampMinutes(newEnd, fixedStart + 15, 1440); // Al menos 15m
-
-      setDragPreview({
-        startMinutes: fixedStart,
-        endMinutes: newEnd,
-        isMoving: false,
-        isResizing: true,
-      });
+      const snapped = snapToGrid(initialEnd + deltaMinutes, 15);
+      return clampMinutes(snapped, fixedStart + 15, 1440); // mínimo 15 min
     };
 
-    const handleMouseUp = (upEvent: MouseEvent) => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-
-      const deltaX = upEvent.clientX - startClientX;
-      const deltaMinutes = pixelsToMinutes(deltaX, pixelsPerHour);
-      let finalEnd = snapToGrid(initialEnd + deltaMinutes, 15);
-      finalEnd = clampMinutes(finalEnd, fixedStart + 15, 1440);
-
-      if (finalEnd !== initialEnd && onResize) {
-        onResize(activity.id, fixedStart, finalEnd);
-      }
-      setDragPreview(null);
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    startPointerDrag(e, {
+      onMove: (deltaX) => {
+        setDragPreview({
+          startMinutes: fixedStart,
+          endMinutes: computeEnd(deltaX),
+          isMoving: false,
+          isResizing: true,
+        });
+      },
+      onEnd: (deltaX, moved) => {
+        const finalEnd = computeEnd(deltaX);
+        if (moved && finalEnd !== initialEnd) onResize?.(activity.id, fixedStart, finalEnd);
+        setDragPreview(null);
+      },
+      onCancel: () => setDragPreview(null),
+    });
   };
 
   const colorClass = `fx-color-${activity.color}`;
@@ -182,15 +150,15 @@ export const ActivityBlock: React.FC<ActivityBlockProps> = ({
         top: `${top}px`,
         height: `${height}px`,
       }}
-      onMouseDown={handleMouseDownMove}
+      onPointerDown={handlePointerDownMove}
       title={`${activity.title} (${formattedTime})${activity.comment ? `\nNota: ${activity.comment}` : ''}`}
     >
       <div
         className="resize-handle resize-handle-left"
-        onMouseDown={handleMouseDownResizeLeft}
+        onPointerDown={handlePointerDownResizeLeft}
         title="Arrastrar para ajustar hora inicial"
       />
-      
+
       <div className="activity-header">
         <span className="activity-title">{activity.title}</span>
         {width > 65 && (
@@ -206,7 +174,7 @@ export const ActivityBlock: React.FC<ActivityBlockProps> = ({
 
       <div
         className="resize-handle resize-handle-right"
-        onMouseDown={handleMouseDownResizeRight}
+        onPointerDown={handlePointerDownResizeRight}
         title="Arrastrar para ajustar hora final"
       />
     </div>

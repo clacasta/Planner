@@ -261,6 +261,9 @@ body {
   position: relative;
   flex: 1;
   cursor: crosshair;
+  /* En táctil el arrastre sobre la pista lo gestiona el navegador (scroll del
+     día); la creación con el dedo se hace con un toque, no con un arrastre. */
+  touch-action: pan-x pan-y;
 }
 
 /* Grid background lines inside each track */
@@ -297,6 +300,11 @@ body {
   cursor: grab;
   transition: box-shadow 0.15s ease, transform 0.05s ease;
   z-index: 5;
+  /* Necesario para que arrastrar el bloque con el dedo mueva la actividad en
+     lugar de desplazar la página. */
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .activity-block:hover {
@@ -382,6 +390,20 @@ body {
 .resize-handle-right {
   right: 0;
   border-radius: 0 6px 6px 0;
+}
+
+/* En pantallas táctiles no existe :hover: los tiradores deben verse y ser
+   lo bastante anchos para agarrarlos con el dedo (≥ 44 px de alto efectivo). */
+@media (pointer: coarse) {
+  .resize-handle {
+    width: 18px;
+    opacity: 0.35;
+  }
+
+  .activity-block {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
 }
 
 /* Flexoki Color Themes for Blocks */
@@ -862,4 +884,167 @@ body {
   border-top: 1px solid var(--border-subtle);
   font-size: 0.8rem;
   color: var(--text-secondary);
+}
+
+/* ============================================================
+   Grupos del header, avisos y estados de la v1.1
+   ============================================================ */
+
+.header-group {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-right: 0.5rem;
+}
+
+.zoom-readout {
+  font-size: 0.78rem;
+  min-width: 42px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.btn-small {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.78rem;
+}
+
+/* Banner de aviso (datos ilegibles, almacenamiento no disponible...) */
+.app-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 1.25rem;
+  font-size: 0.85rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.app-banner-warning {
+  background-color: var(--fx-yellow-light);
+  color: var(--fx-yellow);
+}
+
+.app-banner-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Aviso flotante con acción (deshacer, errores de guardado) */
+.app-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.25rem;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: min(92vw, 640px);
+  padding: 0.6rem 0.9rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  font-size: 0.85rem;
+  z-index: 200;
+}
+
+.app-toast-error {
+  border-color: var(--fx-red-border);
+  background-color: var(--fx-red-light);
+  color: var(--fx-red);
+}
+
+@media (max-width: 768px) {
+  .app-toast {
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    transform: none;
+    max-width: none;
+  }
+}
+
+/* Confirmación de importación */
+.import-preview {
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 0.9rem 1rem;
+  margin-bottom: 1rem;
+  background-color: var(--bg-surface-alt);
+}
+
+.import-preview-warning {
+  border-color: var(--fx-red-border);
+  background-color: var(--fx-red-light);
+}
+
+.import-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-primary);
+}
+
+.import-preview-detail {
+  margin: 0.4rem 0 0.6rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.import-preview-issues {
+  margin: 0 0 0.75rem 1rem;
+  padding: 0;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.import-preview-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.backup-hint {
+  margin: 0.6rem 0 0;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+/* Pantalla de error de render */
+.error-boundary {
+  max-width: 640px;
+  margin: 3rem auto;
+  padding: 1.5rem;
+  border: 1px solid var(--fx-red-border);
+  border-radius: 10px;
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.error-boundary h1 {
+  font-size: 1.15rem;
+  margin: 0 0 0.5rem;
+}
+
+.error-boundary p {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.error-boundary-detail {
+  font-size: 0.78rem;
+  padding: 0.6rem;
+  border-radius: 6px;
+  background-color: var(--bg-surface-alt);
+  overflow-x: auto;
+}
+
+.error-boundary-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 1rem;
 }

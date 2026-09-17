@@ -1,53 +1,97 @@
-const CACHE_NAME = 'family-day-planner-v1';
+// Service Worker del Family Day Planner.
+//
+// Las rutas de PRECACHE son RELATIVAS a la ubicación de este archivo, que vive
+// en la raíz del despliegue (p. ej. /Planner/sw.js). Usar rutas absolutas
+// ("/", "/index.html") hacía fallar `cache.addAll` con 404 en GitHub Pages y
+// dejaba la app sin funcionamiento offline.
 
-const PRECACHE_ASSETS = [
-  '/',
-  '/index.html',
-  '/vite.svg',
-  '/manifest.webmanifest'
-];
+const CACHE_NAME = 'family-day-planner-v2';
+const PRECACHE_ASSETS = ['./', './index.html', './manifest.webmanifest'];
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(PRECACHE_ASSETS);
-    }).then(() => self.skipWaiting())
+    (async () => {
+      const cache = await caches.open(CACHE_NAME);
+      // Precacheamos de una en una: `addAll` es atómico y un solo 404
+      // (por ejemplo un recurso retirado) dejaría la caché vacía.
+      await Promise.all(
+        PRECACHE_ASSETS.map((asset) =>
+          cache.add(new Request(asset, { cache: 'reload' })).catch(() => undefined)
+        )
+      );
+      await self.skipWaiting();
+    })()
   );
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames
-          .filter((name) => name !== CACHE_NAME)
-          .map((name) => caches.delete(name))
-      );
-    }).then(() => self.clients.claim())
+    (async () => {
+      const names = await caches.keys();
+      await Promise.all(names.filter((n) => n !== CACHE_NAME).map((n) => caches.delete(n)));
+      await self.clients.claim();
+    })()
   );
 });
 
 self.addEventListener('fetch', (event) => {
-  // Solo interceptar peticiones http/https
-  if (!event.request.url.startsWith('http')) return;
+  const { request } = event;
 
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(event.request).then((networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-          return networkResponse;
+  if (request.method !== 'GET') return;
+
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+
+  // Navegación: red primero (así llegan los despliegues nuevos) y caché como
+  // respaldo cuando no hay conexión.
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      (async () => {
+        try {
+          const fresh = await fetch(request);
+          const cache = await caches.open(CACHE_NAME);
+          cache.put('./index.html', fresh.clone());
+          return fresh;
+        } catch {
+          const cached = (await caches.match('./index.html')) || (await caches.match('./'));
+          return cached || Response.error();
         }
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        });
-        return networkResponse;
-      }).catch(() => {
-        return caches.match('/');
-      });
-    })
+      })()
+    );
+    return;
+  }
+
+  // Resto de recursos propios: caché primero, rellenando en segundo plano.
+  event.respondWith(
+    (async () => {
+      const cached = await caches.match(request);
+      if (cached) {
+        fetch(request)
+          .then((res) => {
+            if (res && res.status === 200 && res.type === 'basic') {
+              caches.open(CACHE_NAME).then((c) => c.put(request, res));
+            }
+          })
+          .catch(() => undefined);
+        return cached;
+      }
+
+      try {
+        const res = await fetch(request);
+        if (res && res.status === 200 && res.type === 'basic') {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then((c) => c.put(request, clone));
+        }
+        return res;
+      } catch {
+        return Response.error();
+      }
+    })()
   );
 });

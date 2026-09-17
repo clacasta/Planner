@@ -1,8 +1,21 @@
 import React, { useRef, useState } from 'react';
 import { DayPlan } from '../domain/types';
-import { StorageData } from '../storage/schema';
+import { StorageData, SCHEMA_VERSION } from '../storage/schema';
 import { exportPlanAsJSON, exportAllPlansAsJSON, importPlanFromJSONFile } from '../storage/importExport';
-import { X, Plus, Copy, Trash2, Download, Upload, Check, Calendar, Users, Activity as ActivityIcon } from 'lucide-react';
+import { ImportPayload, summarizeImport } from '../storage/validate';
+import {
+  X,
+  Plus,
+  Copy,
+  Trash2,
+  Download,
+  Upload,
+  Check,
+  Calendar,
+  Users,
+  Activity as ActivityIcon,
+  AlertTriangle,
+} from 'lucide-react';
 
 interface PlanManagerModalProps {
   isOpen: boolean;
@@ -12,7 +25,7 @@ interface PlanManagerModalProps {
   onCreatePlan: (name: string) => void;
   onDuplicatePlan: (planId: string) => void;
   onDeletePlan: (planId: string) => void;
-  onImportPlan: (imported: { singlePlan?: DayPlan; fullBackup?: StorageData }) => void;
+  onImportPlan: (payload: ImportPayload) => void;
   onClose: () => void;
 }
 
@@ -30,6 +43,9 @@ export const PlanManagerModal: React.FC<PlanManagerModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [newPlanName, setNewPlanName] = useState('');
   const [importError, setImportError] = useState<string | null>(null);
+  // Importación pendiente de confirmación: nada se aplica hasta que el usuario
+  // ve qué contiene el archivo y pulsa el botón correspondiente.
+  const [pendingImport, setPendingImport] = useState<ImportPayload | null>(null);
 
   if (!isOpen) return null;
 
@@ -46,23 +62,34 @@ export const PlanManagerModal: React.FC<PlanManagerModalProps> = ({
 
     setImportError(null);
     try {
-      const result = await importPlanFromJSONFile(file);
-      onImportPlan(result);
+      const payload = await importPlanFromJSONFile(file);
+      setPendingImport(payload);
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : 'Error al importar archivo');
+      setPendingImport(null);
+    } finally {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-    } catch (err: any) {
-      setImportError(err.message || 'Error al importar archivo');
     }
   };
 
   const handleExportAll = () => {
     exportAllPlansAsJSON({
-      schemaVersion: 1,
+      schemaVersion: SCHEMA_VERSION,
       activePlanId,
       plans,
     });
   };
+
+  const handleConfirmImport = () => {
+    if (!pendingImport) return;
+    onImportPlan(pendingImport);
+    setPendingImport(null);
+  };
+
+  const currentData: StorageData = { schemaVersion: SCHEMA_VERSION, activePlanId, plans };
+  const pendingSummary = pendingImport ? summarizeImport(pendingImport) : null;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -79,6 +106,46 @@ export const PlanManagerModal: React.FC<PlanManagerModalProps> = ({
 
         <div className="modal-body" style={{ padding: '1.25rem', maxHeight: '70vh', overflowY: 'auto' }}>
           {importError && <div className="modal-error-badge">{importError}</div>}
+
+          {/* Confirmación de importación */}
+          {pendingImport && pendingSummary && (
+            <div className={`import-preview ${pendingSummary.isFullBackup ? 'import-preview-warning' : ''}`}>
+              <div className="import-preview-header">
+                {pendingSummary.isFullBackup && <AlertTriangle size={18} />}
+                <strong>{pendingSummary.title}</strong>
+              </div>
+              <p className="import-preview-detail">{pendingSummary.detail}</p>
+
+              {pendingImport.issues.length > 0 && (
+                <ul className="import-preview-issues">
+                  {pendingImport.issues.slice(0, 6).map((issue, idx) => (
+                    <li key={idx}>{issue}</li>
+                  ))}
+                  {pendingImport.issues.length > 6 && (
+                    <li>…y {pendingImport.issues.length - 6} aviso(s) más.</li>
+                  )}
+                </ul>
+              )}
+
+              <div className="import-preview-actions">
+                <button type="button" className="btn" onClick={() => exportAllPlansAsJSON(currentData)}>
+                  <Download size={16} />
+                  <span>Descargar copia actual</span>
+                </button>
+                <button type="button" className="btn" onClick={() => setPendingImport(null)}>
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className={`btn ${pendingSummary.isFullBackup ? 'btn-danger' : 'btn-primary'}`}
+                  onClick={handleConfirmImport}
+                >
+                  <Check size={16} />
+                  <span>{pendingSummary.isFullBackup ? 'Reemplazar todos mis días' : 'Añadir este día'}</span>
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Formulario de creación rápida de nuevo día */}
           <form onSubmit={handleCreateNew} className="new-plan-form">
@@ -201,6 +268,10 @@ export const PlanManagerModal: React.FC<PlanManagerModalProps> = ({
                 <span>Exportar todas las planificaciones</span>
               </button>
             </div>
+            <p className="backup-hint">
+              Al importar, verás un resumen antes de aplicar nada y se guardará una copia del estado
+              actual. Importar también se puede deshacer con Ctrl/Cmd+Z.
+            </p>
           </div>
         </div>
 

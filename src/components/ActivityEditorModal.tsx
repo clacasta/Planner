@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Activity, FlexokiColorKey } from '../domain/types';
 import { formatTime, parseTime } from '../domain/time';
 import { X, Trash2, Check } from 'lucide-react';
@@ -31,23 +31,15 @@ export const ActivityEditorModal: React.FC<ActivityEditorModalProps> = ({
   onDelete,
   onClose,
 }) => {
-  const [title, setTitle] = useState('');
-  const [startTime, setStartTime] = useState('08:00');
-  const [endTime, setEndTime] = useState('09:00');
-  const [color, setColor] = useState<FlexokiColorKey>('blue');
-  const [comment, setComment] = useState('');
+  // El estado del formulario se inicializa a partir de la actividad: quien
+  // renderiza este modal lo monta con `key={activity.id}`, así que cada
+  // actividad abre un formulario limpio (sin efectos de sincronización).
+  const [title, setTitle] = useState(activity?.title ?? '');
+  const [startTime, setStartTime] = useState(formatTime(activity?.startMinutes ?? 480));
+  const [endTime, setEndTime] = useState(formatTime(activity?.endMinutes ?? 540));
+  const [color, setColor] = useState<FlexokiColorKey>(activity?.color ?? 'blue');
+  const [comment, setComment] = useState(activity?.comment ?? '');
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (activity) {
-      setTitle(activity.title);
-      setStartTime(formatTime(activity.startMinutes));
-      setEndTime(formatTime(activity.endMinutes));
-      setColor(activity.color);
-      setComment(activity.comment || '');
-      setError(null);
-    }
-  }, [activity]);
 
   if (!isOpen || !activity) return null;
 

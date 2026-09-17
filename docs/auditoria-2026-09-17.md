@@ -13,7 +13,7 @@ tags:
   - auditoria
 ---
 
-# Auditoría del repositorio Planner (Family Day Planner) — 2026-09-17
+# Análisis del repositorio Planner (Family Day Planner) — 2026-09-17
 
 > Auditoría sobre el estado real del código y del despliegue en `142c81a`.
 > Todo lo marcado como **verificado** se comprobó ejecutando el código, `curl`
@@ -185,3 +185,25 @@ curl -s -o /dev/null -w '%{http_code}\n' https://raw.githubusercontent.com/claca
 
 En navegador (Pages): `navigator.serviceWorker.getRegistrations()` → 0; `caches.keys()` → [];
 emulación táctil con `Input.dispatchTouchEvent` sobre `.row-track` → no crea actividad.
+
+---
+
+## Estado de implementación (17-sep-2026, tarde)
+
+La v1.1 se ha implementado y verificado en local, en la rama `v1.1-solidez-y-movil`
+(5 commits sobre `142c81a`). Falta solo el `push` (el host no tiene credenciales de GitHub).
+
+Corregido: B1+B2 (PWA y manifest con rutas base-relative, iconos PNG generados), B3
+(Pointer Events + `touch-action`, con toque-para-crear en móvil), B4 (`LICENSE` MIT),
+B5 (validación estricta + resumen previo + copia antes de importar + import deshacible),
+B6 (datos corruptos conservados intactos con aviso), B8 (deshacer/rehacer, 50 niveles),
+B11 (`crypto.randomUUID`), B12 (`ErrorBoundary`), B14 (46 tests, ESLint, CI + gate en el deploy),
+más avisos de fallo de guardado.
+
+Verificado en navegador (build de producción servido con `vite preview`): SW registrado con
+scope `/Planner/` y caché activa; arrastre táctil mueve y redimensiona bloques; toque en zona
+vacía crea 1 h y abre el editor; `Ctrl+Z` deshace; import inválido se rechaza y válido se
+previsualiza antes de aplicar; datos corruptos → banner + copia conservada.
+
+Queda para v1.2: F3 (mover/copiar entre personas), F2 (panel de equilibrio), F1 (línea de ahora),
+F6 (`.ics`/CSV), F8 (tema oscuro), renombrar/eliminar personas y F4/F5 (plantillas, vista semanal).

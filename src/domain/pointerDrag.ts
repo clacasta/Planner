@@ -8,14 +8,19 @@ import type React from 'react';
  * dedo. Con Pointer Events la misma lógica sirve para los tres dispositivos.
  *
  * Requisito imprescindible en CSS: el elemento con el que se arrastra debe
- * declarar `touch-action: none` (bloques) o `touch-action: pan-x` (pista), si no
- * el navegador se queda el gesto para hacer scroll y llega `pointercancel`.
+ * declarar `touch-action` (`none` en los bloques, `pan-x pan-y` en la pista); si
+ * no, el navegador se queda el gesto para hacer scroll y llega `pointercancel`.
  */
+export interface PointerDragDelta {
+  x: number;
+  y: number;
+}
+
 export interface PointerDragHandlers {
-  /** Se llama en cada movimiento, con el desplazamiento horizontal en píxeles. */
-  onMove: (deltaX: number, event: PointerEvent) => void;
+  /** Se llama en cada movimiento, con el desplazamiento en píxeles (x e y). */
+  onMove: (delta: PointerDragDelta, event: PointerEvent) => void;
   /** Fin del gesto: `moved` indica si se superó el umbral de arrastre. */
-  onEnd: (deltaX: number, moved: boolean) => void;
+  onEnd: (delta: PointerDragDelta, moved: boolean) => void;
   /** El gesto lo canceló el navegador (scroll, multitáctil...). Revertir preview. */
   onCancel?: () => void;
 }
@@ -23,8 +28,8 @@ export interface PointerDragHandlers {
 const DRAG_THRESHOLD_PX = 4;
 
 /**
- * Arranca un gesto de arrastre horizontal. Devuelve `false` si el evento no es
- * válido como inicio de arrastre (botón secundario del ratón).
+ * Arranca un gesto de arrastre. Devuelve `false` si el evento no es válido como
+ * inicio de arrastre (botón secundario del ratón).
  */
 export function startPointerDrag(
   event: React.PointerEvent,
@@ -34,12 +39,18 @@ export function startPointerDrag(
   if (event.pointerType === 'mouse' && event.button !== 0) return false;
 
   const startClientX = event.clientX;
+  const startClientY = event.clientY;
   let moved = false;
 
   const handlePointerMove = (moveEvent: PointerEvent) => {
-    const deltaX = moveEvent.clientX - startClientX;
-    if (Math.abs(deltaX) > thresholdPx) moved = true;
-    handlers.onMove(deltaX, moveEvent);
+    const delta: PointerDragDelta = {
+      x: moveEvent.clientX - startClientX,
+      y: moveEvent.clientY - startClientY,
+    };
+    // El umbral mira los dos ejes: arrastrar en vertical (para mover la
+    // actividad a otra persona) es un arrastre igual que el horizontal.
+    if (Math.abs(delta.x) > thresholdPx || Math.abs(delta.y) > thresholdPx) moved = true;
+    handlers.onMove(delta, moveEvent);
   };
 
   const cleanup = () => {
@@ -50,7 +61,10 @@ export function startPointerDrag(
 
   const handlePointerUp = (upEvent: PointerEvent) => {
     cleanup();
-    handlers.onEnd(upEvent.clientX - startClientX, moved);
+    handlers.onEnd(
+      { x: upEvent.clientX - startClientX, y: upEvent.clientY - startClientY },
+      moved
+    );
   };
 
   const handlePointerCancel = () => {

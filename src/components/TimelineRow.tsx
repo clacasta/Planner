@@ -12,6 +12,8 @@ interface TimelineRowProps {
   rowHeaderWidth: number;
   isFirst?: boolean;
   isLast?: boolean;
+  /** La línea está resaltada como destino de un arrastre entre personas. */
+  isDropTarget?: boolean;
   onMoveRow?: (rowId: string, direction: 'up' | 'down') => void;
   onToggleVisibility?: (rowId: string) => void;
   onAddActivity?: (rowId: string) => void;
@@ -19,6 +21,15 @@ interface TimelineRowProps {
   onMoveActivity?: (rowId: string, activityId: string, newStartMinutes: number) => void;
   onResizeActivity?: (rowId: string, activityId: string, newStartMinutes: number, newEndMinutes: number) => void;
   onCreateActivity?: (rowId: string, startMinutes: number, endMinutes: number) => void;
+  /** El bloque se ha soltado en la línea de otra persona. */
+  onMoveActivityToRow?: (
+    rowId: string,
+    activityId: string,
+    targetRowId: string,
+    newStartMinutes: number
+  ) => void;
+  /** Avisa de la línea resaltada mientras se arrastra en vertical. */
+  onDropTargetChange?: (rowId: string | null) => void;
 }
 
 /** Duración por defecto al crear con un toque en pantalla táctil. */
@@ -30,6 +41,7 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({
   rowHeaderWidth,
   isFirst = false,
   isLast = false,
+  isDropTarget = false,
   onMoveRow,
   onToggleVisibility,
   onAddActivity,
@@ -37,6 +49,8 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({
   onMoveActivity,
   onResizeActivity,
   onCreateActivity,
+  onMoveActivityToRow,
+  onDropTargetChange,
 }) => {
   const trackRef = useRef<HTMLDivElement>(null);
   const [creationDraft, setCreationDraft] = useState<{
@@ -90,10 +104,10 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({
     setCreationDraft(currentDraft);
 
     startPointerDrag(e, {
-      onMove: (deltaX) => {
+      onMove: (delta) => {
         if (!trackRef.current) return;
         const currentMin = snapToGrid(
-          pixelsToMinutes(e.clientX + deltaX - rect.left, pixelsPerHour),
+          pixelsToMinutes(e.clientX + delta.x - rect.left, pixelsPerHour),
           15
         );
 
@@ -122,7 +136,7 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({
 
   if (!row.visible) {
     return (
-      <div className="timeline-row" style={{ minHeight: '40px', opacity: 0.5 }}>
+      <div className="timeline-row" data-row-id={row.id} style={{ minHeight: '40px', opacity: 0.5 }}>
         <div
           className="row-header"
           style={{ width: `${rowHeaderWidth}px`, minWidth: `${rowHeaderWidth}px` }}
@@ -163,7 +177,11 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({
   }
 
   return (
-    <div className="timeline-row" style={{ minHeight: `${rowHeight}px` }}>
+    <div
+      className={`timeline-row ${isDropTarget ? 'is-drop-target' : ''}`}
+      data-row-id={row.id}
+      style={{ minHeight: `${rowHeight}px` }}
+    >
       {/* Columna fija de la persona */}
       <div
         className="row-header"
@@ -236,11 +254,16 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({
           <ActivityBlock
             key={act.id}
             activity={act}
+            sourceRowId={row.id}
             pixelsPerHour={pixelsPerHour}
             baseLaneHeight={baseLaneHeight}
             onSelect={(selected) => onSelectActivity?.(selected, row.id)}
             onMove={(actId, newStart) => onMoveActivity?.(row.id, actId, newStart)}
             onResize={(actId, newStart, newEnd) => onResizeActivity?.(row.id, actId, newStart, newEnd)}
+            onMoveToRow={(actId, targetRowId, newStart) =>
+              onMoveActivityToRow?.(row.id, actId, targetRowId, newStart)
+            }
+            onDropTargetChange={onDropTargetChange}
           />
         ))}
 

@@ -14,6 +14,16 @@ interface DayPlannerProps {
   onMoveActivity: (rowId: string, activityId: string, newStartMinutes: number) => void;
   onResizeActivity: (rowId: string, activityId: string, newStartMinutes: number, newEndMinutes: number) => void;
   onCreateActivity: (rowId: string, startMinutes: number, endMinutes: number) => void;
+  /** El bloque se ha soltado en la línea de otra persona. */
+  onMoveActivityToRow: (
+    rowId: string,
+    activityId: string,
+    targetRowId: string,
+    newStartMinutes: number
+  ) => void;
+  /** Línea resaltada como destino de un arrastre entre personas. */
+  dropTargetRowId: string | null;
+  onDropTargetChange: (rowId: string | null) => void;
 }
 
 export const DayPlanner: React.FC<DayPlannerProps> = ({
@@ -27,6 +37,9 @@ export const DayPlanner: React.FC<DayPlannerProps> = ({
   onMoveActivity,
   onResizeActivity,
   onCreateActivity,
+  onMoveActivityToRow,
+  dropTargetRowId,
+  onDropTargetChange,
 }) => {
   return (
     <div className="planner-wrapper">
@@ -46,6 +59,7 @@ export const DayPlanner: React.FC<DayPlannerProps> = ({
             rowHeaderWidth={rowHeaderWidth}
             isFirst={index === 0}
             isLast={index === plan.rows.length - 1}
+            isDropTarget={dropTargetRowId === row.id}
             onMoveRow={onMoveRow}
             onToggleVisibility={onToggleRowVisibility}
             onAddActivity={onAddActivity}
@@ -53,6 +67,8 @@ export const DayPlanner: React.FC<DayPlannerProps> = ({
             onMoveActivity={onMoveActivity}
             onResizeActivity={onResizeActivity}
             onCreateActivity={onCreateActivity}
+            onMoveActivityToRow={onMoveActivityToRow}
+            onDropTargetChange={onDropTargetChange}
           />
         ))}
       </div>

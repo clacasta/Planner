@@ -2,6 +2,11 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { DayPlan, Activity, FlexokiColorKey } from './domain/types';
 import { DEFAULT_PIXELS_PER_HOUR, MIN_PIXELS_PER_HOUR, MAX_PIXELS_PER_HOUR, formatTime } from './domain/time';
 import { createId } from './domain/id';
+import {
+  duplicateActivityToRow,
+  moveActivityToRow,
+  replaceActivity,
+} from './domain/planOperations';
 import { loadStorageData, saveStorageData, savePreImportBackup, readRawStorageValue } from './storage/localStorage';
 import { StorageData } from './storage/schema';
 import { useHistoryState } from './storage/useHistoryState';
@@ -72,6 +77,9 @@ export function App() {
     activity: Activity;
     rowId: string;
   } | null>(null);
+
+  // Línea resaltada mientras se arrastra una actividad hacia otra persona
+  const [dropTargetRowId, setDropTargetRowId] = useState<string | null>(null);
 
   // Avisos
   const [loadWarning, setLoadWarning] = useState<string | null>(initialLoad.warning ?? null);
@@ -358,21 +366,73 @@ export function App() {
     if (!editingContext) return;
     const { rowId } = editingContext;
 
+    updateActivePlan((p) => replaceActivity(p, rowId, updatedActivity), 'editar una actividad');
+  };
+
+  const rowName = (rowId: string) =>
+    currentPlan.rows.find((r) => r.id === rowId)?.name ?? 'otra persona';
+
+  /** El bloque se ha soltado sobre la línea de otra persona. */
+  const handleMoveActivityToRow = (
+    rowId: string,
+    activityId: string,
+    targetRowId: string,
+    newStartMinutes: number
+  ) => {
+    const targetName = rowName(targetRowId);
     updateActivePlan(
-      (p) => ({
-        ...p,
-        rows: p.rows.map((row) => {
-          if (row.id !== rowId) return row;
-          return {
-            ...row,
-            activities: row.activities.map((act) =>
-              act.id === updatedActivity.id ? updatedActivity : act
-            ),
-          };
-        }),
-      }),
-      'editar una actividad'
+      (p) => moveActivityToRow(p, rowId, activityId, targetRowId, newStartMinutes),
+      `mover una actividad a ${targetName}`
     );
+    showToast({
+      kind: 'info',
+      text: `Actividad movida a la línea de ${targetName}.`,
+      actionLabel: 'Deshacer',
+      action: undoAction,
+    });
+  };
+
+  /** Desde el editor: mover la actividad (con los cambios del formulario) a otra persona. */
+  const handleMoveActivityToPerson = (targetRowId: string, updatedActivity: Activity) => {
+    if (!editingContext) return;
+    const { rowId } = editingContext;
+    const targetName = rowName(targetRowId);
+
+    updateActivePlan((p) => {
+      const withEdits = replaceActivity(p, rowId, updatedActivity);
+      return moveActivityToRow(withEdits, rowId, updatedActivity.id, targetRowId);
+    }, `mover la actividad a ${targetName}`);
+
+    setEditingContext(null);
+    showToast({
+      kind: 'info',
+      text: `Actividad movida a la línea de ${targetName}.`,
+      actionLabel: 'Deshacer',
+      action: undoAction,
+    });
+  };
+
+  /** Desde el editor: copiar la actividad a otra persona (o duplicarla en la misma). */
+  const handleDuplicateActivityToPerson = (targetRowId: string, updatedActivity: Activity) => {
+    if (!editingContext) return;
+    const { rowId } = editingContext;
+    const isSameRow = targetRowId === rowId;
+    const targetName = rowName(targetRowId);
+
+    updateActivePlan((p) => {
+      const withEdits = replaceActivity(p, rowId, updatedActivity);
+      return duplicateActivityToRow(withEdits, rowId, updatedActivity.id, targetRowId, updatedActivity);
+    }, isSameRow ? 'duplicar una actividad' : `copiar una actividad a ${targetName}`);
+
+    setEditingContext(null);
+    showToast({
+      kind: 'info',
+      text: isSameRow
+        ? 'Actividad duplicada.'
+        : `Actividad copiada a la línea de ${targetName}.`,
+      actionLabel: 'Deshacer',
+      action: undoAction,
+    });
   };
 
   const handleDeleteActivity = (activityId: string) => {
@@ -590,6 +650,9 @@ export function App() {
         onMoveActivity={handleMoveActivity}
         onResizeActivity={handleResizeActivity}
         onCreateActivity={handleCreateActivity}
+        onMoveActivityToRow={handleMoveActivityToRow}
+        dropTargetRowId={dropTargetRowId}
+        onDropTargetChange={setDropTargetRowId}
       />
 
       {/* Sección inferior de notas exclusiva para impresión A4 */}
@@ -615,7 +678,7 @@ export function App() {
           <strong>{totalActivities}</strong> actividades en <em>{currentPlan.name}</em>
         </div>
         <div>
-          <span>Arrastra sobre una línea para crear · toca (móvil) para crear 1 h · arrastra un bloque para moverlo · Ctrl/Cmd+Z deshace</span>
+          <span>Arrastra sobre una línea para crear · toca (móvil) para crear 1 h · arrastra un bloque en horizontal para moverlo y en vertical para pasarlo a otra persona · Ctrl/Cmd+Z deshace</span>
         </div>
       </footer>
 
@@ -639,6 +702,10 @@ export function App() {
           isOpen={true}
           activity={editingContext.activity}
           rowName={currentPlan.rows.find((r) => r.id === editingContext.rowId)?.name}
+          rows={currentPlan.rows}
+          currentRowId={editingContext.rowId}
+          onMoveTo={handleMoveActivityToPerson}
+          onDuplicateTo={handleDuplicateActivityToPerson}
           onSave={handleSaveActivity}
           onDelete={handleDeleteActivity}
           onClose={() => setEditingContext(null)}

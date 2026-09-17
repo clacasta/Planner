@@ -1048,3 +1048,46 @@ body {
   gap: 0.6rem;
   margin-top: 1rem;
 }
+
+/* ============================================================
+   Mover / copiar actividades entre personas (v1.2)
+   ============================================================ */
+
+/* Línea resaltada mientras se arrastra un bloque hacia otra persona */
+.timeline-row.is-drop-target {
+  outline: 2px dashed var(--fx-blue);
+  outline-offset: -2px;
+  background-color: var(--fx-blue-light);
+  transition: background-color 0.12s ease;
+}
+
+.timeline-row.is-drop-target .row-name::after {
+  content: ' ← soltar aquí';
+  font-size: 0.72rem;
+  opacity: 0.75;
+}
+
+.person-assign {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.person-assign select {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+
+@media (max-width: 768px) {
+  .person-assign .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+
+.form-hint {
+  margin: 0.4rem 0 0;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+}

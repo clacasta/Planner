@@ -1,15 +1,22 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { LayoutActivity } from '../domain/types';
 import { minutesToPixels, pixelsToMinutes, snapToGrid, formatTime, clampMinutes } from '../domain/time';
 import { startPointerDrag } from '../domain/pointerDrag';
+import { findRowIdAtPoint } from '../domain/dropTarget';
 
 interface ActivityBlockProps {
   activity: LayoutActivity;
+  /** Línea a la que pertenece el bloque (para detectar el cambio de persona). */
+  sourceRowId: string;
   pixelsPerHour: number;
   baseLaneHeight?: number;
   onSelect?: (activity: LayoutActivity) => void;
   onMove?: (activityId: string, newStartMinutes: number) => void;
   onResize?: (activityId: string, newStartMinutes: number, newEndMinutes: number) => void;
+  /** El bloque se ha soltado sobre la línea de otra persona. */
+  onMoveToRow?: (activityId: string, targetRowId: string, newStartMinutes: number) => void;
+  /** Avisa de la línea resaltada mientras se arrastra en vertical. */
+  onDropTargetChange?: (rowId: string | null) => void;
 }
 
 interface DragPreview {
@@ -21,13 +28,18 @@ interface DragPreview {
 
 export const ActivityBlock: React.FC<ActivityBlockProps> = ({
   activity,
+  sourceRowId,
   pixelsPerHour,
   baseLaneHeight = 44,
   onSelect,
   onMove,
   onResize,
+  onMoveToRow,
+  onDropTargetChange,
 }) => {
   const [dragPreview, setDragPreview] = useState<DragPreview | null>(null);
+  // Línea bajo el puntero durante el arrastre (null = la propia línea).
+  const dropTargetRef = useRef<string | null>(null);
 
   const currentStart = dragPreview ? dragPreview.startMinutes : activity.startMinutes;
   const currentEnd = dragPreview ? dragPreview.endMinutes : activity.endMinutes;
@@ -38,7 +50,14 @@ export const ActivityBlock: React.FC<ActivityBlockProps> = ({
   const top = activity.laneIndex * (baseLaneHeight + 6) + 6;
   const height = baseLaneHeight;
 
-  // --- Mover el bloque completo (ratón, dedo o lápiz) ---
+  const clearDropTarget = () => {
+    if (dropTargetRef.current !== null) {
+      dropTargetRef.current = null;
+      onDropTargetChange?.(null);
+    }
+  };
+
+  // --- Mover el bloque (ratón, dedo o lápiz), incluso a otra persona ---
   const handlePointerDownMove = (e: React.PointerEvent) => {
     e.stopPropagation();
 
@@ -51,27 +70,48 @@ export const ActivityBlock: React.FC<ActivityBlockProps> = ({
       return clampMinutes(snapped, 0, 1440 - actDuration);
     };
 
+    dropTargetRef.current = null;
+
     startPointerDrag(e, {
-      onMove: (deltaX) => {
-        const newStart = computeStart(deltaX);
+      onMove: (delta, event) => {
+        const newStart = computeStart(delta.x);
         setDragPreview({
           startMinutes: newStart,
           endMinutes: newStart + actDuration,
           isMoving: true,
           isResizing: false,
         });
+
+        // ¿Debajo del puntero hay otra persona?
+        const rowIdUnderPointer = findRowIdAtPoint(event.clientX, event.clientY);
+        const target =
+          rowIdUnderPointer && rowIdUnderPointer !== sourceRowId ? rowIdUnderPointer : null;
+        if (target !== dropTargetRef.current) {
+          dropTargetRef.current = target;
+          onDropTargetChange?.(target);
+        }
       },
-      onEnd: (deltaX, moved) => {
+      onEnd: (delta, moved) => {
+        const targetRowId = dropTargetRef.current;
+        clearDropTarget();
+
         if (moved) {
-          const finalStart = computeStart(deltaX);
-          if (finalStart !== initialStart) onMove?.(activity.id, finalStart);
+          const finalStart = computeStart(delta.x);
+          if (targetRowId) {
+            onMoveToRow?.(activity.id, targetRowId, finalStart);
+          } else if (finalStart !== initialStart) {
+            onMove?.(activity.id, finalStart);
+          }
         } else {
           // Un clic/tap sin arrastre abre el editor.
           onSelect?.(activity);
         }
         setDragPreview(null);
       },
-      onCancel: () => setDragPreview(null),
+      onCancel: () => {
+        clearDropTarget();
+        setDragPreview(null);
+      },
     });
   };
 
@@ -89,16 +129,16 @@ export const ActivityBlock: React.FC<ActivityBlockProps> = ({
     };
 
     startPointerDrag(e, {
-      onMove: (deltaX) => {
+      onMove: (delta) => {
         setDragPreview({
-          startMinutes: computeStart(deltaX),
+          startMinutes: computeStart(delta.x),
           endMinutes: fixedEnd,
           isMoving: false,
           isResizing: true,
         });
       },
-      onEnd: (deltaX, moved) => {
-        const finalStart = computeStart(deltaX);
+      onEnd: (delta, moved) => {
+        const finalStart = computeStart(delta.x);
         if (moved && finalStart !== initialStart) onResize?.(activity.id, finalStart, fixedEnd);
         setDragPreview(null);
       },
@@ -120,16 +160,16 @@ export const ActivityBlock: React.FC<ActivityBlockProps> = ({
     };
 
     startPointerDrag(e, {
-      onMove: (deltaX) => {
+      onMove: (delta) => {
         setDragPreview({
           startMinutes: fixedStart,
-          endMinutes: computeEnd(deltaX),
+          endMinutes: computeEnd(delta.x),
           isMoving: false,
           isResizing: true,
         });
       },
-      onEnd: (deltaX, moved) => {
-        const finalEnd = computeEnd(deltaX);
+      onEnd: (delta, moved) => {
+        const finalEnd = computeEnd(delta.x);
         if (moved && finalEnd !== initialEnd) onResize?.(activity.id, fixedStart, finalEnd);
         setDragPreview(null);
       },

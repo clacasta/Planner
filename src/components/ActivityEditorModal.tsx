@@ -1,12 +1,18 @@
 import React, { useState } from 'react';
-import { Activity, FlexokiColorKey } from '../domain/types';
+import { Activity, FlexokiColorKey, TimelineRow } from '../domain/types';
 import { formatTime, parseTime } from '../domain/time';
-import { X, Trash2, Check } from 'lucide-react';
+import { X, Trash2, Check, ArrowRightLeft, Copy } from 'lucide-react';
 
 interface ActivityEditorModalProps {
   isOpen: boolean;
   activity: Activity | null;
   rowName?: string;
+  /** Todas las líneas del día, para mover o copiar la actividad a otra persona. */
+  rows: TimelineRow[];
+  /** Línea actual de la actividad. */
+  currentRowId: string;
+  onMoveTo: (targetRowId: string, updatedActivity: Activity) => void;
+  onDuplicateTo: (targetRowId: string, updatedActivity: Activity) => void;
   onSave: (updatedActivity: Activity) => void;
   onDelete: (activityId: string) => void;
   onClose: () => void;
@@ -27,6 +33,10 @@ export const ActivityEditorModal: React.FC<ActivityEditorModalProps> = ({
   isOpen,
   activity,
   rowName,
+  rows,
+  currentRowId,
+  onMoveTo,
+  onDuplicateTo,
   onSave,
   onDelete,
   onClose,
@@ -40,17 +50,23 @@ export const ActivityEditorModal: React.FC<ActivityEditorModalProps> = ({
   const [color, setColor] = useState<FlexokiColorKey>(activity?.color ?? 'blue');
   const [comment, setComment] = useState(activity?.comment ?? '');
   const [error, setError] = useState<string | null>(null);
+  const [targetRowId, setTargetRowId] = useState(
+    () => rows.find((row) => row.id !== currentRowId)?.id ?? currentRowId
+  );
 
   if (!isOpen || !activity) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  /**
+   * Valida el formulario y devuelve la actividad resultante. `null` si hay
+   * errores (que deja reflejados en `error`).
+   */
+  const buildUpdatedActivity = (): Activity | null => {
     setError(null);
 
     const cleanTitle = title.trim();
     if (!cleanTitle) {
       setError('El título de la actividad no puede estar vacío.');
-      return;
+      return null;
     }
 
     const startMin = parseTime(startTime);
@@ -58,28 +74,50 @@ export const ActivityEditorModal: React.FC<ActivityEditorModalProps> = ({
 
     if (startMin === null || endMin === null) {
       setError('El formato de hora debe ser válido (HH:MM).');
-      return;
+      return null;
     }
 
     if (startMin >= endMin) {
       setError('La hora de inicio debe ser anterior a la hora de fin.');
-      return;
+      return null;
     }
 
     if (endMin - startMin < 15) {
       setError('La duración mínima de la actividad es de 15 minutos.');
-      return;
+      return null;
     }
 
-    onSave({
+    return {
       ...activity,
       title: cleanTitle,
       startMinutes: startMin,
       endMinutes: endMin,
       color,
       comment: comment.trim() ? comment.trim() : undefined,
-    });
+    };
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const updated = buildUpdatedActivity();
+    if (!updated) return;
+
+    onSave(updated);
     onClose();
+  };
+
+  const handleMoveToPerson = () => {
+    const updated = buildUpdatedActivity();
+    if (!updated || targetRowId === currentRowId) return;
+
+    onMoveTo(targetRowId, updated);
+  };
+
+  const handleDuplicateToPerson = () => {
+    const updated = buildUpdatedActivity();
+    if (!updated) return;
+
+    onDuplicateTo(targetRowId, updated);
   };
 
   const handleDelete = () => {
@@ -88,6 +126,10 @@ export const ActivityEditorModal: React.FC<ActivityEditorModalProps> = ({
       onClose();
     }
   };
+
+  const targetRowLabel =
+    rows.find((row) => row.id === targetRowId)?.name ??
+    (targetRowId === currentRowId ? 'esta línea' : 'otra persona');
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -162,6 +204,47 @@ export const ActivityEditorModal: React.FC<ActivityEditorModalProps> = ({
                 );
               })}
             </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="act-person">Mover o copiar a otra persona</label>
+            <div className="person-assign">
+              <select
+                id="act-person"
+                className="form-input"
+                value={targetRowId}
+                onChange={(e) => setTargetRowId(e.target.value)}
+              >
+                {rows.map((row) => (
+                  <option key={row.id} value={row.id}>
+                    {row.id === currentRowId ? `${row.name} (esta línea)` : row.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="btn"
+                disabled={targetRowId === currentRowId}
+                onClick={handleMoveToPerson}
+                title={targetRowId === currentRowId ? 'Elige otra persona para moverla' : `Mover a ${targetRowLabel}`}
+              >
+                <ArrowRightLeft size={15} />
+                <span>Mover a</span>
+              </button>
+              <button
+                type="button"
+                className="btn"
+                onClick={handleDuplicateToPerson}
+                title={`Copiar esta actividad en ${targetRowLabel}`}
+              >
+                <Copy size={15} />
+                <span>Duplicar en</span>
+              </button>
+            </div>
+            <p className="form-hint">
+              También puedes arrastrar el bloque sobre la línea de otra persona. Los cambios del
+              formulario se aplican al mover o duplicar.
+            </p>
           </div>
 
           <div className="form-group">

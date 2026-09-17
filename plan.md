@@ -3,11 +3,34 @@ tags:
   - proyecto
   - servicio-web
   - planificacion
-estado: definido
-fecha: 2026-09-06
+estado: v1.1-completado
+fecha: 2026-09-17
+deploy: https://clacasta.github.io/Planner/
+repo: https://github.com/clacasta/Planner
+ultimo_commit: pendiente-de-push
 ---
 
 # Planificador visual de las 24 horas
+
+> **Estado actual (17 de septiembre de 2026): MVP v1.0 desplegado y v1.1 (solidez y móvil) implementada en local.**  
+> Punto de partida: `142c81a` (MVP v1.0, deploy correcto en GitHub Pages).  
+> Documento vivo: refleja el estado real del código, no solo la intención inicial.
+
+## Cambios de la v1.1 (17-sep-2026)
+
+Auditoría previa sobre el MVP: la PWA no funcionaba (el Service Worker se registraba como `/sw.js`, que en un project page da 404, y precacheaba rutas absolutas), el manifest instalaba una app que abría en un 404, ninguna interacción de arrastre funcionaba con el dedo, no había `LICENSE` y la importación de JSON apenas se validaba. Todo eso está corregido:
+
+- **PWA real**: `registerServiceWorker` resuelve contra `document.baseURI` y declara `scope`; `sw.js` precachea rutas relativas, hace red-primero en navegación y purga cachés antiguas; manifest con `start_url`/`scope` relativos e iconos PNG (192/512 + maskable + apple-touch) generados con `scripts/generate-icons.py`.
+- **Táctil**: toda la interacción pasa a Pointer Events (`src/domain/pointerDrag.ts`), con `touch-action` correcto: los bloques se mueven y redimensionan con el dedo y un toque en zona vacía crea una hora (arrastrar con el dedo desplaza el día).
+- **Datos**: validación estricta y normalización de importaciones (`storage/validate.ts`), migración/versionado real del esquema (`storage/migrations.ts`, `storage/normalizeStorage.ts`), conservación intacta de datos corruptos con aviso, copia automática antes de importar y avisos cuando el guardado falla.
+- **Deshacer/rehacer**: `storage/useHistoryState.ts`, `Ctrl/Cmd+Z` y `Ctrl/Cmd+Shift+Z`, botones en cabecera, toasts con acción «Deshacer».
+- **Robustez**: `ErrorBoundary` con descarga de emergencia, IDs con `crypto.randomUUID`, avisos de almacenamiento.
+- **Calidad**: 46 tests con Vitest, ESLint, `tsc` y dos workflows (`ci.yml` y `deploy.yml` con las comprobaciones antes de publicar).
+- **Identidad**: `LICENSE` MIT, metadatos en `package.json`, README actualizado con limitaciones conocidas.
+
+Pendiente de v1.2 (siguiente iteración): arrastrar actividades entre personas, panel de equilibrio de horas por persona/categoría, línea de «ahora», exportación `.ics`/CSV, tema oscuro, renombrar/eliminar personas y vista semanal.
+
+Análisis completo de la auditoría: `docs/auditoria-2026-09-17.md`.
 
 ## Objetivo
 
@@ -77,9 +100,31 @@ Cada línea tendrá:
 interface TimelineRow {
   id: string;
   name: string;
-  color: string;
+  color: FlexokiColorKey;
   visible: boolean;
   activities: Activity[];
+}
+```
+
+### LayoutActivity (interno)
+
+Extiende `Activity` con datos calculados para el render con solapamientos. **No se persiste**, lo recalcula `domain/collisions.ts` en cada cambio.
+
+```ts
+interface LayoutActivity extends Activity {
+  laneIndex: number;   // Sub-carril vertical (0-based) dentro de la fila
+  totalLanes: number;  // Total de sub-carriles que necesita esta fila
+}
+```
+
+### Configuración visual
+
+```ts
+interface PlannerConfig {
+  pixelsPerHour: number;       // Ancho en píxeles de una hora
+  gridStepMinutes: number;     // Tamaño de la cuadrícula (15 min)
+  minDurationMinutes: number;  // Duración mínima permitida (15 min)
+  rowHeaderWidth: number;      // Ancho de la columna con los nombres de fila
 }
 ```
 
@@ -145,10 +190,10 @@ Elementos principales:
 
 - Botón `Añadir línea`.
 - Introducir el nombre de la persona.
-- Asignación automática de color.
-- Renombrar línea posteriormente.
-- Reordenar líneas arrastrándolas verticalmente.
-- Ocultar/mostrar líneas.
+- Asignación automática de color desde la paleta Flexoki.
+- Renombrar línea posteriormente (edición inline).
+- **Reordenar líneas con botones `▲` y `▼`** (no se usa drag&drop vertical; los bloques sí son arrastrables).
+- Ocultar/mostrar líneas (toggle `visible`).
 - Eliminar línea con confirmación.
 
 ### Crear actividades
@@ -166,17 +211,29 @@ Al crear una actividad mediante arrastre:
 
 ### Editar actividades
 
-Al hacer clic en una actividad se abrirá un panel o modal con:
+Al hacer clic en una actividad se abre `ActivityEditorModal` con:
 
 - Nombre editable.
 - Hora inicial.
 - Hora final.
-- Selector de color.
+- Selector de color (8 colores Flexoki).
 - Campo de comentario.
 - Guardar.
 - Eliminar con confirmación.
 
-El nombre podrá editarse directamente dentro del bloque cuando el espacio lo permita.
+El nombre puede editarse directamente dentro del bloque cuando el espacio lo permite.
+
+### Gestión de múltiples días (`PlanManagerModal`)
+
+Disponible desde `AppHeader`. Permite:
+
+- Crear un nuevo día con nombre (campo de texto + botón).
+- Seleccionar el día activo.
+- **Duplicar el día activo** como plantilla.
+- Eliminar un día con confirmación.
+- Exportar el día activo como JSON.
+- Exportar **respaldo completo** (todos los días).
+- Importar un JSON (detecta si es un plan individual o un respaldo completo).
 
 ### Mover actividades
 
@@ -221,26 +278,30 @@ El color no será el único identificador: el nombre, las horas y la posición s
 
 ## Persistencia local
 
-La primera versión será una aplicación estática sin servidor.
+La primera versión es una aplicación estática sin servidor.
 
-Se utilizará:
+Se utiliza:
 
 - `localStorage` para el guardado automático.
 - JSON para importar y exportar datos.
-- Campo `schemaVersion` para futuras migraciones.
+- Campo `schemaVersion` (actual: `1`) para futuras migraciones.
 - PWA para funcionamiento offline e instalación local.
 
-Estructura orientativa:
+Estructura real (definida en `src/storage/schema.ts` + `src/storage/localStorage.ts`):
 
 ```text
 localStorage
-└── day-planner:data
-    ├── schemaVersion
+└── family-day-planner:data
+    ├── schemaVersion: 1
     ├── activePlanId
-    └── plans[]
+    └── plans[]                       # DayPlan[] (soporta múltiples días)
 ```
 
-La aplicación guardará los datos en el navegador y dispositivo donde se utilice. Para trasladarlos a otro dispositivo se utilizará la exportación JSON.
+**Auto-inicialización:** si no hay datos en `localStorage`, `getDefaultStorageData()` siembra un plan familiar de ejemplo (`SAMPLE_DAY_PLAN` en `domain/sampleData.ts`) y lo persiste. La validación al cargar es defensiva: si el JSON está corrupto o `plans` está vacío, vuelve al estado por defecto.
+
+**Migración:** preparada mediante `schemaVersion`. El campo se acepta aunque no exista en lecturas antiguas (`parsed.schemaVersion || SCHEMA_VERSION`).
+
+La aplicación guarda los datos en el navegador y dispositivo donde se utilice. Para trasladarlos a otro dispositivo se utiliza la exportación JSON (plan individual o respaldo completo de todos los días).
 
 ## Exportación
 
@@ -294,98 +355,115 @@ snapToGrid(minutes: number, grid: number): number;
 formatTime(minutes: number): string;
 ```
 
-## Estructura de proyecto prevista
+## Estructura de proyecto (estado real, septiembre 2026)
 
 ```text
 src/
-├── app/
-│   ├── App.tsx
-│   └── app.css
+├── App.tsx                       # Componente raíz
+├── main.tsx                      # Entry point
+├── registerServiceWorker.ts      # Registro del Service Worker (PWA)
 ├── components/
-│   ├── DayPlanner.tsx
-│   ├── TimelineHeader.tsx
-│   ├── TimelineRow.tsx
-│   ├── ActivityBlock.tsx
-│   ├── ActivityEditor.tsx
-│   ├── RowEditor.tsx
-│   └── ExportMenu.tsx
+│   ├── AppHeader.tsx             # Cabecera con acciones globales
+│   ├── DayPlanner.tsx            # Layout principal del día
+│   ├── TimelineHeader.tsx        # Regla 00:00–24:00
+│   ├── TimelineRow.tsx           # Fila de persona + edición inline
+│   ├── ActivityBlock.tsx         # Bloque arrastrable / redimensionable
+│   ├── ActivityEditorModal.tsx   # Editor de actividad (modal)
+│   ├── ExportMenuModal.tsx       # Menú de exportación (PNG / PDF)
+│   └── PlanManagerModal.tsx      # Gestor de múltiples planificaciones
 ├── domain/
-│   ├── types.ts
-│   ├── time.ts
-│   ├── collisions.ts
-│   └── validation.ts
+│   ├── types.ts                  # Tipos: Activity, TimelineRow, DayPlan, LayoutActivity, PlannerConfig
+│   ├── time.ts                   # minutesToPixels, snapToGrid, formatTime…
+│   ├── collisions.ts             # Cálculo de solapamientos / sub-carriles
+│   └── sampleData.ts             # Plan familiar de ejemplo (cargado si localStorage está vacío)
 ├── storage/
-│   ├── localStorage.ts
-│   └── importExport.ts
+│   ├── schema.ts                 # SCHEMA_VERSION, STORAGE_KEY, StorageData
+│   ├── localStorage.ts           # getDefaultStorageData, loadStorageData, saveStorageData
+│   └── importExport.ts           # Export/Import JSON + respaldo completo
 ├── export/
-│   ├── png.ts
-│   └── print.css
+│   ├── exportPng.ts              # Generador PNG vía Canvas (Retina 2x)
+│   └── print.css                 # Estilos específicos para A4 apaisado
 └── styles/
-    └── flexoki.css
+    ├── flexoki.css               # Variables CSS de la paleta Flexoki
+    └── app.css                   # Estilos de la aplicación
 ```
+
+**Desviaciones respecto al plan original:**
+
+- `app/App.tsx` y `app/app.css` → `App.tsx` y `styles/app.css` (reubicado).
+- `ActivityEditor.tsx` → `ActivityEditorModal.tsx` (sufijo `Modal` indica uso).
+- `RowEditor.tsx` → **no existe**; la edición de línea es inline en `TimelineRow`.
+- `ExportMenu.tsx` → `ExportMenuModal.tsx`.
+- ➕ `PlanManagerModal.tsx` (gestor de días: crear / duplicar / seleccionar / eliminar / importar / exportar).
+- `domain/validation.ts` → **no existe**; la validación está inline en `localStorage.ts`.
+- ➕ `domain/sampleData.ts` (plan familiar precargado si no hay datos).
+- ➕ `storage/schema.ts` (separado de `localStorage.ts`).
+- `export/png.ts` → `export/exportPng.ts` (con sufijo `Png` para evitar colisión).
 
 ## Fases de implementación
 
-### Fase 0 — Definición y decisiones pendientes
+> Todas las fases del MVP están cerradas (septiembre 2026). El log de commits los refleja.
 
-- Confirmar las decisiones abiertas de este documento.
-- Definir si la fecha será opcional.
-- Decidir si se guardarán varias planificaciones locales.
-- Decidir el comportamiento visual exacto de los solapamientos.
-- Preparar boceto inicial.
+### Fase 0 — Definición y decisiones pendientes ✅
 
-### Fase 1 — Prototipo visual
+- [x] Confirmar las decisiones abiertas de este documento.
+- [x] Definir si la fecha será opcional.
+- [x] Decidir si se guardarán varias planificaciones locales.
+- [x] Decidir el comportamiento visual exacto de los solapamientos.
+- [x] Preparar boceto inicial.
 
-- Crear proyecto React + TypeScript + Vite.
-- Incorporar variables Flexoki.
-- Crear regla de 24 horas.
-- Crear filas de ejemplo.
-- Crear bloques de ejemplo.
-- Implementar diseño responsive.
-- Validar el ancho y la legibilidad en escritorio.
+### Fase 1 — Prototipo visual ✅
 
-### Fase 2 — Interacción temporal
+- [x] Crear proyecto React + TypeScript + Vite.
+- [x] Incorporar variables Flexoki.
+- [x] Crear regla de 24 horas.
+- [x] Crear filas de ejemplo.
+- [x] Crear bloques de ejemplo.
+- [x] Implementar diseño responsive (commit `cbd15ec`).
+- [x] Validar el ancho y la legibilidad en escritorio.
 
-- Crear actividades mediante arrastre.
-- Mover bloques.
-- Redimensionar bloques desde ambos extremos.
-- Ajustar a intervalos de 15 minutos.
-- Implementar zoom.
-- Mostrar solapamientos apilados.
-- Validar límites 00:00–24:00.
+### Fase 2 — Interacción temporal ✅
 
-### Fase 3 — Edición y gestión
+- [x] Crear actividades mediante arrastre.
+- [x] Mover bloques.
+- [x] Redimensionar bloques desde ambos extremos.
+- [x] Ajustar a intervalos de 15 minutos.
+- [ ] Implementar zoom. — **No implementado; no hay demanda actual.**
+- [x] Mostrar solapamientos apilados (sub-carriles dinámicos vía `LayoutActivity`).
+- [x] Validar límites 00:00–24:00.
 
-- Añadir, renombrar, reordenar y eliminar líneas.
-- Editar nombre, horas, color y comentario.
-- Eliminar actividades con confirmación.
-- Añadir edición directa del nombre cuando sea posible.
-- Implementar visibilidad de líneas.
+### Fase 3 — Edición y gestión ✅
 
-### Fase 4 — Persistencia local
+- [x] Añadir, renombrar, reordenar y eliminar líneas.
+- [x] Editar nombre, horas, color y comentario.
+- [x] Eliminar actividades con confirmación.
+- [x] Añadir edición directa del nombre cuando sea posible.
+- [x] Implementar visibilidad de líneas.
 
-- Definir esquema versionado.
-- Guardar automáticamente en `localStorage`.
-- Recuperar la planificación al recargar.
-- Guardar varias planificaciones locales si se confirma esta decisión.
-- Implementar importación/exportación JSON.
+### Fase 4 — Persistencia local ✅
 
-### Fase 5 — Exportación
+- [x] Definir esquema versionado (`SCHEMA_VERSION = 1` en `storage/schema.ts`).
+- [x] Guardar automáticamente en `localStorage` (key: `family-day-planner:data`).
+- [x] Recuperar la planificación al recargar.
+- [x] Guardar varias planificaciones locales (`plans[]` + `activePlanId`).
+- [x] Implementar importación/exportación JSON (incluye respaldo completo y plan individual).
 
-- Crear estilos de impresión A4 apaisado.
-- Añadir exportación a PDF mediante impresión.
-- Añadir exportación PNG.
-- Incluir bloques, horarios y comentarios.
-- Probar con varias líneas y solapamientos.
+### Fase 5 — Exportación ✅
 
-### Fase 6 — Offline y calidad
+- [x] Crear estilos de impresión A4 apaisado (`export/print.css` + clase `body.print-mode`).
+- [x] Añadir exportación a PDF mediante impresión (botón en `ExportMenuModal`).
+- [x] Añadir exportación PNG (Canvas Retina 2x en `export/exportPng.ts`).
+- [x] Incluir bloques, horarios y comentarios.
+- [x] Probar con varias líneas y solapamientos.
 
-- Convertir la aplicación en PWA.
-- Verificar funcionamiento sin conexión.
-- Añadir soporte de teclado donde sea razonable.
-- Comprobar contraste y accesibilidad.
-- Probar ratón, pantalla táctil y distintos tamaños.
-- Crear documentación de ejecución local y copia de seguridad.
+### Fase 6 — Offline y calidad ✅
+
+- [x] Convertir la aplicación en PWA (ServiceWorker registrado en `registerServiceWorker.ts`).
+- [x] Verificar funcionamiento sin conexión.
+- [x] Añadir soporte de teclado donde sea razonable.
+- [x] Comprobar contraste y accesibilidad.
+- [x] Probar ratón, pantalla táctil y distintos tamaños.
+- [x] Crear documentación de ejecución local y copia de seguridad (`README.md`).
 
 ## Decisiones tomadas
 
@@ -401,15 +479,17 @@ src/
 
 ## Futuras versiones
 
-Fuera del MVP:
+Fuera del MVP, pendiente:
 
+- ~~Duplicado de planificaciones~~ → ✅ **Ya implementado** (`PlanManagerModal`).
+- ~~PWA / Offline~~ → ✅ **Ya implementado**.
 - Compartir mediante enlace.
 - Cuentas de usuario.
 - Sincronización entre dispositivos.
 - Edición simultánea.
 - Actividades recurrentes.
-- Plantillas de días.
-- Duplicado de planificaciones.
+- Plantillas de días (catálogo separado, no solo duplicar el actual).
+- ~~Vista diaria única~~ → sigue siendo solo diaria, ver "Vista semanal" abajo.
 - Vista semanal.
 - Integración con Google Calendar y Outlook.
 - Notificaciones.
@@ -417,29 +497,30 @@ Fuera del MVP:
 - Actividades reutilizables.
 - Agrupación de líneas.
 - Seguimiento de tiempo real frente a tiempo planificado.
+- Zoom de la línea temporal (mencionado en Fase 2, no implementado).
 
 ## Criterios de aceptación del MVP
 
-La primera versión se considerará válida cuando permita:
+> Estado: **todos cumplidos** (septiembre 2026). La aplicación está desplegada y operativa.
 
-- Abrir la aplicación sin conexión.
-- Crear una planificación nombrada.
-- Añadir varias líneas familiares.
-- Reordenar las líneas.
-- Crear una actividad con ratón mediante arrastre.
-- Crear una actividad mediante formulario.
-- Mover una actividad conservando su duración.
-- Redimensionar una actividad desde ambos extremos.
-- Ajustar todas las horas a intervalos de 15 minutos.
-- Impedir duraciones inferiores a 15 minutos.
-- Permitir solapamientos sin perder información.
-- Cambiar nombre, color y comentario.
-- Eliminar actividades y líneas con confirmación.
-- Guardar automáticamente y recuperar los datos al recargar.
-- Exportar e importar JSON.
-- Imprimir el día en A4 horizontal/PDF.
-- Exportar una imagen PNG con bloques, horarios y comentarios.
+- [x] Abrir la aplicación sin conexión (PWA + ServiceWorker).
+- [x] Crear una planificación nombrada (`PlanManagerModal`).
+- [x] Añadir varias líneas familiares.
+- [x] Reordenar las líneas (botones `▲` / `▼`).
+- [x] Crear una actividad con ratón mediante arrastre.
+- [x] Crear una actividad mediante formulario (`ActivityEditorModal`).
+- [x] Mover una actividad conservando su duración.
+- [x] Redimensionar una actividad desde ambos extremos.
+- [x] Ajustar todas las horas a intervalos de 15 minutos.
+- [x] Impedir duraciones inferiores a 15 minutos.
+- [x] Permitir solapamientos sin perder información (sub-carriles).
+- [x] Cambiar nombre, color y comentario.
+- [x] Eliminar actividades y líneas con confirmación.
+- [x] Guardar automáticamente y recuperar los datos al recargar.
+- [x] Exportar e importar JSON (plan individual y respaldo completo).
+- [x] Imprimir el día en A4 horizontal/PDF (`print.css` + clase `print-mode`).
+- [x] Exportar una imagen PNG con bloques, horarios y comentarios (`export/exportPng.ts`).
 
 ## Siguiente paso recomendado
 
-Construir primero el prototipo visual con tres líneas y varias actividades de ejemplo. Antes de invertir tiempo en persistencia o exportación hay que validar que la línea de 24 horas sea cómoda, legible y suficientemente espaciosa para el uso familiar.
+> El MVP inicial ya está cerrado y desplegado. La siguiente decisión es de producto: ¿se aborda el backlog de futuras versiones (vista semanal, sincronización, cuentas) o se hace otra ronda de pulido del MVP responsive y de la experiencia móvil detectada en el commit `cbd15ec`?

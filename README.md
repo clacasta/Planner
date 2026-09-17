@@ -46,7 +46,12 @@
 - **Exportación multipropósito**:
   - **Impresión / PDF en A4 apaisado**: Diseño adaptado al ancho del papel con tabla de notas y comentarios al pie.
   - **Descarga de imagen PNG**: Generador de imagen en alta resolución (Retina 2x) mediante Canvas.
-- **PWA e instalación local**: Compatible con Progressive Web App para instalar en el sistema operativo y funcionar 100% sin conexión a internet.
+- **PWA e instalación local (offline de verdad)**: Service Worker registrado con el `base` real del despliegue, caché propia con estrategia red-primero en navegación y manifest con iconos PNG (192/512 + maskable + apple-touch).
+- **Interacción táctil completa**: crear, mover y redimensionar funcionan con el dedo, no solo con el ratón. En pantallas táctiles los tiradores se ensanchan y se hacen visibles.
+- **Deshacer / rehacer**: historial de hasta 50 cambios con `Ctrl/Cmd+Z` y `Ctrl/Cmd+Shift+Z`, botones en la cabecera y aviso con acción «Deshacer» al eliminar.
+- **Importación segura**: validación estricta y normalización del JSON, resumen previo (qué contiene y qué se ha corregido o descartado), copia automática del estado actual antes de aplicar y la importación se puede deshacer.
+- **Tus datos, a salvo**: si el almacenamiento guardado está dañado se conserva una copia intacta y se avisa; si no se puede guardar (cuota agotada, navegación privada) aparece un aviso; y si algo falla al dibujar, hay pantalla de error con descarga de emergencia en lugar de página en blanco.
+- **Calidad automatizada**: 46 tests con Vitest sobre la lógica de dominio y almacenamiento, ESLint y `tsc` en CI; el despliegue a GitHub Pages se bloquea si algo falla.
 
 ---
 
@@ -72,21 +77,25 @@ La aplicación utiliza la paleta de colores [Flexoki](https://github.com/kepano/
 ```text
 family-day-planner/
 ├── public/
+│   ├── icons/                 # Iconos PNG (192, 512, maskable, apple-touch)
 │   ├── manifest.webmanifest   # Configuración PWA
-│   ├── sw.js                  # Service Worker (offline cache)
-│   └── vite.svg               # Icono de aplicación
+│   └── sw.js                  # Service Worker (caché offline)
 ├── src/
 │   ├── components/            # Componentes React
 │   │   ├── ActivityBlock.tsx       # Bloque interactivo con tiradores
 │   │   ├── ActivityEditorModal.tsx # Modal de edición de actividad
 │   │   ├── AppHeader.tsx           # Barra superior y acciones
 │   │   ├── DayPlanner.tsx          # Contenedor principal de la planificación
+│   │   ├── ErrorBoundary.tsx       # Pantalla de error con descarga de datos
 │   │   ├── ExportMenuModal.tsx     # Diálogo de opciones de exportación
 │   │   ├── PlanManagerModal.tsx    # Gestor de días y copias de seguridad
 │   │   ├── TimelineHeader.tsx      # Regla horaria de 24 horas
 │   │   └── TimelineRow.tsx         # Fila por persona y zona de arrastre
 │   ├── domain/                # Capa lógica y matemática de dominio
+│   │   ├── __tests__/              # Tests de dominio (Vitest)
 │   │   ├── collisions.ts           # Cálculo de sub-carriles para solapamientos
+│   │   ├── id.ts                   # Identificadores únicos (randomUUID)
+│   │   ├── pointerDrag.ts          # Gestos unificados ratón/dedo/lápiz
 │   │   ├── sampleData.ts           # Datos de ejemplo iniciales
 │   │   ├── time.ts                 # Conversión de minutos, px y snap
 │   │   └── types.ts                # Tipos e interfaces TypeScript
@@ -94,21 +103,55 @@ family-day-planner/
 │   │   ├── exportPng.ts            # Generador de imagen PNG (Canvas 2x)
 │   │   └── print.css               # Estilos de impresión A4 apaisado
 │   ├── storage/               # Persistencia local
-│   │   ├── importExport.ts         # Validación y lectura/escritura JSON
-│   │   ├── localStorage.ts         # Adaptador para localStorage
-│   │   └── schema.ts               # Esquema de datos versionado
+│   │   ├── __tests__/              # Tests de almacenamiento y validación
+│   │   ├── importExport.ts         # Exportación y lectura de JSON
+│   │   ├── localStorage.ts         # Adaptador de localStorage y copias
+│   │   ├── migrations.ts           # Migración/versionado del esquema
+│   │   ├── normalizeStorage.ts     # Normalización de datos guardados
+│   │   ├── schema.ts               # Esquema de datos versionado
+│   │   ├── useHistoryState.ts      # Historial deshacer/rehacer
+│   │   └── validate.ts             # Validación estricta de importaciones
 │   ├── styles/                # Estilos CSS
 │   │   ├── app.css                 # Estilos globales de interfaz
 │   │   └── flexoki.css             # Variables de color Flexoki
 │   ├── App.tsx                # Componente raíz
 │   ├── main.tsx               # Entrada de la aplicación
 │   └── registerServiceWorker.ts
+├── .github/workflows/         # deploy.yml (Pages) y ci.yml (verificación)
+├── eslint.config.js
 ├── index.html
+├── LICENSE
 ├── package.json
 ├── plan.md                    # Documento de especificación del proyecto
 ├── tsconfig.json
-└── vite.config.ts
+├── vite.config.ts
+└── vitest.config.ts
 ```
+
+---
+
+## 📱 Interacción: ratón, táctil y teclado
+
+- **Crear**: con ratón, arrastra sobre una línea vacía (se ve la duración en vivo); en pantalla táctil, un **toque** crea una actividad de 1 hora y abre el editor (arrastrar con el dedo desplaza el día, que es lo que se espera en móvil).
+- **Mover**: arrastra el bloque en horizontal; conserva su duración.
+- **Redimensionar**: arrastra los extremos izquierdo o derecho (mínimo 15 minutos).
+- **Atajos**: `Ctrl/Cmd+Z` deshacer · `Ctrl/Cmd+Shift+Z` rehacer · `Esc` cerrar diálogos.
+
+---
+
+## 🧪 Desarrollo, pruebas y CI
+
+```bash
+npm run dev         # servidor de desarrollo
+npm run build       # tsc + build de producción
+npm run preview     # sirve el build (respeta el base /Planner/)
+npm run typecheck   # comprobación de tipos
+npm run lint        # ESLint
+npm run test        # tests (Vitest)
+npm run test:watch  # tests en modo vigilancia
+```
+
+El workflow `ci.yml` ejecuta tipado, lint, tests y build en cada push y pull request. `deploy.yml` repite esas comprobaciones antes de publicar en GitHub Pages, así que un fallo no llega nunca a producción.
 
 ---
 
@@ -131,6 +174,17 @@ npm run dev
 # 4. Compilar para producción
 npm run build
 ```
+
+---
+
+## ⚠️ Limitaciones conocidas (y siguientes pasos)
+
+- Las actividades **no se pueden arrastrar de una persona a otra**: hay que borrar y volver a crear. Es lo primero de la lista para la v1.2.
+- No hay **plantillas ni recurrencia** («todos los martes natación», aplicar un día laborable a lunes-viernes): cada día se duplica a mano.
+- Las personas se pueden **añadir, reordenar y ocultar**, pero todavía **no renombrar, recolorear ni eliminar** desde la interfaz.
+- La vista es **exclusivamente diaria**: no hay vista semanal ni salto rápido entre días.
+- El guardado es por pestaña: si abres la app en **dos pestañas a la vez**, la última en guardar gana.
+- Sin recordatorios ni notificaciones.
 
 ---
 
@@ -167,7 +221,12 @@ Esta aplicación es **100% estática y de ejecución local**.
 - **Multi-Format Export**:
   - **Print / PDF (A4 Landscape)**: Formatted for A4 paper with a dedicated footer table for notes and comments.
   - **High-Definition PNG Download**: Direct Canvas-rendered 2x Retina PNG export.
-- **PWA & Offline Ready**: Progressive Web App ready for native desktop installation and 100% offline usage.
+- **PWA & Offline, for real**: Service worker registered against the actual deployment base with its own cache (network-first navigation), plus a manifest with PNG icons (192/512 + maskable + apple-touch).
+- **Full touch support**: creating, moving and resizing work with a finger, not just a mouse; resize handles are wider and always visible on touch screens.
+- **Undo / Redo**: 50-step history with `Ctrl/Cmd+Z` and `Ctrl/Cmd+Shift+Z`, header buttons and an "Undo" action on every deletion.
+- **Safe imports**: strict JSON validation and normalization, a summary of what the file contains (including corrections and dropped items) before anything is applied, an automatic backup of the current state, and undoable imports.
+- **Your data stays yours**: corrupted storage is preserved intact with a clear warning, failed saves (quota, private mode) are surfaced, and a render error shows a recovery screen with an emergency data download instead of a blank page.
+- **Automated quality**: 46 Vitest tests over the domain and storage layers, plus ESLint and `tsc` in CI; the Pages deployment is gated on all of them passing.
 
 ---
 
@@ -206,7 +265,20 @@ npm run dev
 
 # 4. Build for production
 npm run build
+
+# Extra: quality checks
+npm run typecheck && npm run lint && npm run test
 ```
+
+---
+
+## ⚠️ Known Limitations
+
+- Activities **cannot be dragged between people** yet (delete and recreate for now).
+- No **templates or recurrence** (e.g. "swimming every Tuesday").
+- People can be added, reordered and hidden, but **not renamed, recolored or removed** from the UI yet.
+- Daily view only: no week view.
+- Per-tab storage: opening the app in **two tabs** means the last save wins.
 
 ---
 

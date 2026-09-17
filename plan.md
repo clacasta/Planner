@@ -3,11 +3,12 @@ tags:
   - proyecto
   - servicio-web
   - planificacion
-estado: v1.1-completado
+estado: v1.2-en-curso
 fecha: 2026-09-17
 deploy: https://clacasta.github.io/Planner/
 repo: https://github.com/clacasta/Planner
-ultimo_commit: pendiente-de-push
+ultimo_commit: a50d665
+publicado: 2026-09-17 (push verificado: CI y deploy en verde, PWA registrada y modo offline probado)
 ---
 
 # Planificador visual de las 24 horas

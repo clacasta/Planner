@@ -32,6 +32,16 @@ Pendiente de v1.2 (siguiente iteración): arrastrar actividades entre personas, 
 
 Análisis completo de la auditoría: `docs/auditoria-2026-09-17.md`.
 
+## v1.2 (en curso)
+
+- **Mover y duplicar actividades entre personas** (17-sep-2026, rama `v1.2-mover-entre-personas`):
+  - Arrastre vertical de un bloque sobre la línea de otra persona, con la línea de destino resaltada mientras se arrastra (`domain/dropTarget.ts` + `domain/pointerDrag.ts` con delta en ambos ejes). Funciona igual con ratón y con el dedo.
+  - Desde el editor: desplegable «Mover o copiar a otra persona» con **Mover a** y **Duplicar en** (incluida la propia línea, para duplicar una actividad). Los cambios del formulario se aplican al mover o duplicar.
+  - Lógica pura y probada en `domain/planOperations.ts` (`moveActivityToRow`, `duplicateActivityToRow`, `replaceActivity`): conserva duración, respeta los límites del día y no muta el plan original.
+  - Todo deshacible con `Ctrl/Cmd+Z` y con aviso de acción «Deshacer».
+
+Pendiente en v1.2: panel de equilibrio por persona/categoría, línea de «ahora», exportación `.ics`/CSV, tema oscuro, renombrar/recolorear/eliminar personas y plantillas/vista semanal.
+
 ## Objetivo
 
 Crear una aplicación web local para repartir visualmente las 24 horas del día entre diferentes actividades. Cada miembro de la familia tendrá su propia línea temporal y las actividades se mostrarán como bloques editables.

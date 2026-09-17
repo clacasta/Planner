@@ -48,6 +48,7 @@
   - **Descarga de imagen PNG**: Generador de imagen en alta resolución (Retina 2x) mediante Canvas.
 - **PWA e instalación local (offline de verdad)**: Service Worker registrado con el `base` real del despliegue, caché propia con estrategia red-primero en navegación y manifest con iconos PNG (192/512 + maskable + apple-touch).
 - **Interacción táctil completa**: crear, mover y redimensionar funcionan con el dedo, no solo con el ratón. En pantallas táctiles los tiradores se ensanchan y se hacen visibles.
+- **Mover y copiar entre personas**: arrastra un bloque en vertical sobre la línea de otra persona (se resalta el destino mientras arrastras) o usa el editor: «Mover a» y «Duplicar en», útil para actividades compartidas (la misma extraescolar, la comida en familia...). Ambos se pueden deshacer.
 - **Deshacer / rehacer**: historial de hasta 50 cambios con `Ctrl/Cmd+Z` y `Ctrl/Cmd+Shift+Z`, botones en la cabecera y aviso con acción «Deshacer» al eliminar.
 - **Importación segura**: validación estricta y normalización del JSON, resumen previo (qué contiene y qué se ha corregido o descartado), copia automática del estado actual antes de aplicar y la importación se puede deshacer.
 - **Tus datos, a salvo**: si el almacenamiento guardado está dañado se conserva una copia intacta y se avisa; si no se puede guardar (cuota agotada, navegación privada) aparece un aviso; y si algo falla al dibujar, hay pantalla de error con descarga de emergencia en lugar de página en blanco.
@@ -133,7 +134,8 @@ family-day-planner/
 ## 📱 Interacción: ratón, táctil y teclado
 
 - **Crear**: con ratón, arrastra sobre una línea vacía (se ve la duración en vivo); en pantalla táctil, un **toque** crea una actividad de 1 hora y abre el editor (arrastrar con el dedo desplaza el día, que es lo que se espera en móvil).
-- **Mover**: arrastra el bloque en horizontal; conserva su duración.
+- **Mover**: arrastra el bloque en horizontal (conserva su duración) o **en vertical sobre otra persona** para pasársela; la línea de destino se resalta mientras arrastras.
+- **Copiar o mover desde el editor**: al abrir una actividad, el desplegable «Mover o copiar a otra persona» permite moverla o duplicarla (también en la misma línea, para duplicar una actividad).
 - **Redimensionar**: arrastra los extremos izquierdo o derecho (mínimo 15 minutos).
 - **Atajos**: `Ctrl/Cmd+Z` deshacer · `Ctrl/Cmd+Shift+Z` rehacer · `Esc` cerrar diálogos.
 
@@ -179,7 +181,6 @@ npm run build
 
 ## ⚠️ Limitaciones conocidas (y siguientes pasos)
 
-- Las actividades **no se pueden arrastrar de una persona a otra**: hay que borrar y volver a crear. Es lo primero de la lista para la v1.2.
 - No hay **plantillas ni recurrencia** («todos los martes natación», aplicar un día laborable a lunes-viernes): cada día se duplica a mano.
 - Las personas se pueden **añadir, reordenar y ocultar**, pero todavía **no renombrar, recolorear ni eliminar** desde la interfaz.
 - La vista es **exclusivamente diaria**: no hay vista semanal ni salto rápido entre días.
@@ -223,6 +224,7 @@ Esta aplicación es **100% estática y de ejecución local**.
   - **High-Definition PNG Download**: Direct Canvas-rendered 2x Retina PNG export.
 - **PWA & Offline, for real**: Service worker registered against the actual deployment base with its own cache (network-first navigation), plus a manifest with PNG icons (192/512 + maskable + apple-touch).
 - **Full touch support**: creating, moving and resizing work with a finger, not just a mouse; resize handles are wider and always visible on touch screens.
+- **Move & copy between people**: drag a block vertically onto someone else's row (the drop target is highlighted while you drag), or use the editor's "Move to" / "Duplicate in" actions — handy for shared activities like the same after-school class or family dinner. Both are undoable.
 - **Undo / Redo**: 50-step history with `Ctrl/Cmd+Z` and `Ctrl/Cmd+Shift+Z`, header buttons and an "Undo" action on every deletion.
 - **Safe imports**: strict JSON validation and normalization, a summary of what the file contains (including corrections and dropped items) before anything is applied, an automatic backup of the current state, and undoable imports.
 - **Your data stays yours**: corrupted storage is preserved intact with a clear warning, failed saves (quota, private mode) are surfaced, and a render error shows a recovery screen with an emergency data download instead of a blank page.
@@ -274,7 +276,6 @@ npm run typecheck && npm run lint && npm run test
 
 ## ⚠️ Known Limitations
 
-- Activities **cannot be dragged between people** yet (delete and recreate for now).
 - No **templates or recurrence** (e.g. "swimming every Tuesday").
 - People can be added, reordered and hidden, but **not renamed, recolored or removed** from the UI yet.
 - Daily view only: no week view.

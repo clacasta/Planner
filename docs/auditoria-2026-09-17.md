@@ -207,3 +207,13 @@ previsualiza antes de aplicar; datos corruptos → banner + copia conservada.
 
 Queda para v1.2: F3 (mover/copiar entre personas), F2 (panel de equilibrio), F1 (línea de ahora),
 F6 (`.ics`/CSV), F8 (tema oscuro), renombrar/eliminar personas y F4/F5 (plantillas, vista semanal).
+
+### F3 implementado (17-sep-2026, misma tarde)
+
+F3 (mover/copiar entre personas) ya está hecho en la rama `v1.2-mover-entre-personas`, encima de
+la v1.1 fusionada en `main`: arrastre vertical del bloque a otra línea con resaltado del destino
+(el mismo gesto vale para ratón y dedo) y, desde el editor de la actividad, desplegable con
+«Mover a» y «Duplicar en» (también en la propia línea, para duplicar). Lógica pura en
+`src/domain/planOperations.ts` con 12 tests; verificado en navegador: arrastre de «Dormir» de
+Carlos a Pilar con resaltado previo, «Duplicar en Leo» y «Mover a Pilar» desde el editor, y
+deshacer con `Ctrl+Z` restaurando el estado. La suite sube a 63 tests.

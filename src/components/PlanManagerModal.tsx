@@ -18,6 +18,7 @@ import {
   Users,
   Activity as ActivityIcon,
   AlertTriangle,
+  CalendarRange,
 } from 'lucide-react';
 
 interface PlanManagerModalProps {
@@ -30,6 +31,8 @@ interface PlanManagerModalProps {
   onDuplicatePlan: (planId: string) => void;
   onDeletePlan: (planId: string) => void;
   onImportPlan: (payload: ImportPayload) => void;
+  /** Abre el diálogo para copiar el día en varias fechas. */
+  onCopyToDates: (planId: string) => void;
   onClose: () => void;
 }
 
@@ -43,6 +46,7 @@ export const PlanManagerModal: React.FC<PlanManagerModalProps> = ({
   onDuplicatePlan,
   onDeletePlan,
   onImportPlan,
+  onCopyToDates,
   onClose,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -225,6 +229,13 @@ export const PlanManagerModal: React.FC<PlanManagerModalProps> = ({
                       title="Duplicar día" aria-label="Duplicar día"
                     >
                       <Copy size={16} />
+                    </button>
+                    <button
+                      className="icon-btn"
+                      onClick={() => onCopyToDates(p.id)}
+                      title="Usar como plantilla en otras fechas" aria-label="Usar como plantilla en otras fechas"
+                    >
+                      <CalendarRange size={16} />
                     </button>
                     <button
                       className="icon-btn"

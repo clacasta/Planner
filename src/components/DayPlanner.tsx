@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
+import { minutesToPixels } from '../domain/time';
 import { DayView, Activity } from '../domain/types';
 import { TimelineHeader } from './TimelineHeader';
 import { TimelineRow } from './TimelineRow';
@@ -28,6 +29,10 @@ interface DayPlannerProps {
   onDropTargetChange: (rowId: string | null) => void;
   /** Teclado: eliminar una actividad enfocada. */
   onDeleteActivity: (rowId: string, activityId: string) => void;
+  /** Minuto actual si el día que se ve es hoy; `null` si no. */
+  nowMinutes: number | null;
+  /** Cambia cada vez que hay que desplazar la vista hasta la hora actual. */
+  scrollToNowSignal: number;
 }
 
 export const DayPlanner: React.FC<DayPlannerProps> = ({
@@ -46,7 +51,27 @@ export const DayPlanner: React.FC<DayPlannerProps> = ({
   dropTargetRowId,
   onDropTargetChange,
   onDeleteActivity,
+  nowMinutes,
+  scrollToNowSignal,
 }) => {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const nowRef = useRef(nowMinutes);
+  useEffect(() => {
+    nowRef.current = nowMinutes;
+  });
+
+  // Al abrir un día que es hoy (o al pulsar «Ahora»), se lleva la hora actual
+  // a un tercio de la zona visible.
+  useEffect(() => {
+    const container = scrollRef.current;
+    const now = nowRef.current;
+    if (!container || now === null) return;
+    const visibleTrack = container.clientWidth - rowHeaderWidth;
+    container.scrollLeft = Math.max(0, minutesToPixels(now, pixelsPerHour) - visibleTrack / 3);
+    // Solo al cambiar de día o al pedirlo; no en cada minuto ni con el zoom.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan.id, scrollToNowSignal]);
+
   // Personas visibles en orden, para pasar una actividad a la de arriba/abajo.
   const visibleIds = plan.rows.filter((row) => row.visible).map((row) => row.id);
   const adjacentFor = (rowId: string) => {
@@ -64,11 +89,12 @@ export const DayPlanner: React.FC<DayPlannerProps> = ({
         cambiar la hora final. Alt y flechas arriba o abajo para pasarla a otra persona. Suprimir
         para eliminarla.
       </p>
-      <div className="planner-scroll-container">
+      <div className="planner-scroll-container" ref={scrollRef}>
         {/* Cabecera temporal de 24 horas */}
         <TimelineHeader
           pixelsPerHour={pixelsPerHour}
           rowHeaderWidth={rowHeaderWidth}
+          nowMinutes={nowMinutes}
         />
 
         {/* Filas de miembros familiares con soporte de reordenación */}
@@ -93,6 +119,7 @@ export const DayPlanner: React.FC<DayPlannerProps> = ({
             onDropTargetChange={onDropTargetChange}
             onDeleteActivity={onDeleteActivity}
             adjacentRowIds={adjacentFor(row.id)}
+            nowMinutes={nowMinutes}
           />
         ))}
       </div>

@@ -2,7 +2,9 @@ import React from 'react';
 import { DayView } from '../domain/types';
 import { exportPlanAsPNG } from '../export/exportPng';
 import { exportPlanAsJSON } from '../storage/importExport';
-import { X, Printer, Image, FileJson } from 'lucide-react';
+import { X, Printer, Image, FileJson, CalendarPlus, Sheet } from 'lucide-react';
+import { buildCSV, buildICS } from '../domain/calendarExport';
+import { downloadText, sanitizeFilename } from '../storage/importExport';
 import { useOverlayDismiss } from './useOverlayDismiss';
 import { useDialogFocus } from './useDialogFocus';
 
@@ -36,6 +38,20 @@ export const ExportMenuModal: React.FC<ExportMenuModalProps> = ({
 
   const handleExportJSON = () => {
     exportPlanAsJSON(plan);
+    onClose();
+  };
+
+  const icsContent = buildICS(plan);
+  const baseName = sanitizeFilename(plan.date ? `${plan.name}-${plan.date}` : plan.name, 'dia');
+
+  const handleExportICS = () => {
+    if (!icsContent) return;
+    downloadText(icsContent, `${baseName}.ics`, 'text/calendar');
+    onClose();
+  };
+
+  const handleExportCSV = () => {
+    downloadText(buildCSV(plan), `${baseName}.csv`, 'text/csv');
     onClose();
   };
 
@@ -83,7 +99,38 @@ export const ExportMenuModal: React.FC<ExportMenuModalProps> = ({
             </div>
           </button>
 
-          {/* Opción 3: JSON */}
+          {/* Opción 3: Calendario */}
+          <button
+            className="export-option-card"
+            onClick={handleExportICS}
+            disabled={!icsContent}
+            aria-describedby={icsContent ? undefined : 'ics-needs-date'}
+          >
+            <div className="export-option-icon">
+              <CalendarPlus size={24} />
+            </div>
+            <div className="export-option-content">
+              <strong>Añadir al calendario (.ics)</strong>
+              <span id={icsContent ? undefined : 'ics-needs-date'}>
+                {icsContent
+                  ? 'Un evento por actividad para Google Calendar, Apple Calendar u Outlook.'
+                  : 'Pon una fecha al día (junto al nombre) para poder exportarlo al calendario.'}
+              </span>
+            </div>
+          </button>
+
+          {/* Opción 4: CSV */}
+          <button className="export-option-card" onClick={handleExportCSV}>
+            <div className="export-option-icon">
+              <Sheet size={24} />
+            </div>
+            <div className="export-option-content">
+              <strong>Tabla para Excel (.csv)</strong>
+              <span>Una fila por actividad: persona, horas, duración y nota.</span>
+            </div>
+          </button>
+
+          {/* Opción 5: JSON */}
           <button className="export-option-card" onClick={handleExportJSON}>
             <div className="export-option-icon">
               <FileJson size={24} />

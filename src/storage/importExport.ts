@@ -3,7 +3,7 @@ import { DayView } from '../domain/types';
 import { parseImportPayload, ImportPayload } from './validate';
 
 /** Fuerza la descarga de un contenido de texto. */
-function downloadText(content: string, filename: string, mime: string): void {
+export function downloadText(content: string, filename: string, mime: string): void {
   const blob = new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -15,7 +15,7 @@ function downloadText(content: string, filename: string, mime: string): void {
   URL.revokeObjectURL(url);
 }
 
-function sanitizeFilename(name: string, fallback: string): string {
+export function sanitizeFilename(name: string, fallback: string): string {
   return (
     name
       .toLowerCase()

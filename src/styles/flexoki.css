@@ -61,3 +61,106 @@
   --fx-magenta-light: #FAECF4;
   --fx-magenta-border: #E69DCD;
 }
+
+/*
+ * Tema oscuro (Flexoki «dark»): fondo casi negro, texto base-200 y acentos en
+ * su variante 400. Los fondos y bordes suaves de los bloques se obtienen
+ * mezclando cada acento con el fondo, así no hace falta una segunda paleta.
+ *
+ * Se aplica si el usuario lo elige (data-theme="dark") o, en modo automático,
+ * si el sistema está en oscuro. Al imprimir se fuerza el claro (useTheme).
+ */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg-app: var(--fx-black);
+  --bg-surface: var(--fx-base-950);
+  --bg-surface-alt: var(--fx-base-900);
+  --bg-hover: var(--fx-base-850);
+  --border-subtle: var(--fx-base-850);
+  --border-strong: var(--fx-base-700);
+  --text-primary: var(--fx-base-200);
+  --text-secondary: var(--fx-base-500);
+  --text-muted: var(--fx-base-600);
+  --fx-paper: var(--fx-black);
+
+  --fx-red: #D14D41;
+  --fx-orange: #DA702C;
+  --fx-yellow: #D0A215;
+  --fx-green: #879A39;
+  --fx-cyan: #3AA99F;
+  --fx-blue: #4385BE;
+  --fx-purple: #8B7EC8;
+  --fx-magenta: #CE5D97;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --bg-app: var(--fx-black);
+    --bg-surface: var(--fx-base-950);
+    --bg-surface-alt: var(--fx-base-900);
+    --bg-hover: var(--fx-base-850);
+    --border-subtle: var(--fx-base-850);
+    --border-strong: var(--fx-base-700);
+    --text-primary: var(--fx-base-200);
+    --text-secondary: var(--fx-base-500);
+    --text-muted: var(--fx-base-600);
+    --fx-paper: var(--fx-black);
+
+    --fx-red: #D14D41;
+    --fx-orange: #DA702C;
+    --fx-yellow: #D0A215;
+    --fx-green: #879A39;
+    --fx-cyan: #3AA99F;
+    --fx-blue: #4385BE;
+    --fx-purple: #8B7EC8;
+    --fx-magenta: #CE5D97;
+  }
+}
+
+/* Fondos y bordes suaves derivados del acento (solo en oscuro). */
+:root[data-theme='dark'],
+:root:not([data-theme='light']) {
+  --dark-mix-bg: 16%;
+  --dark-mix-border: 45%;
+}
+
+:root[data-theme='dark'] {
+  --fx-red-light: color-mix(in srgb, var(--fx-red) var(--dark-mix-bg), var(--fx-base-950));
+  --fx-red-border: color-mix(in srgb, var(--fx-red) var(--dark-mix-border), var(--fx-base-950));
+  --fx-orange-light: color-mix(in srgb, var(--fx-orange) var(--dark-mix-bg), var(--fx-base-950));
+  --fx-orange-border: color-mix(in srgb, var(--fx-orange) var(--dark-mix-border), var(--fx-base-950));
+  --fx-yellow-light: color-mix(in srgb, var(--fx-yellow) var(--dark-mix-bg), var(--fx-base-950));
+  --fx-yellow-border: color-mix(in srgb, var(--fx-yellow) var(--dark-mix-border), var(--fx-base-950));
+  --fx-green-light: color-mix(in srgb, var(--fx-green) var(--dark-mix-bg), var(--fx-base-950));
+  --fx-green-border: color-mix(in srgb, var(--fx-green) var(--dark-mix-border), var(--fx-base-950));
+  --fx-cyan-light: color-mix(in srgb, var(--fx-cyan) var(--dark-mix-bg), var(--fx-base-950));
+  --fx-cyan-border: color-mix(in srgb, var(--fx-cyan) var(--dark-mix-border), var(--fx-base-950));
+  --fx-blue-light: color-mix(in srgb, var(--fx-blue) var(--dark-mix-bg), var(--fx-base-950));
+  --fx-blue-border: color-mix(in srgb, var(--fx-blue) var(--dark-mix-border), var(--fx-base-950));
+  --fx-purple-light: color-mix(in srgb, var(--fx-purple) var(--dark-mix-bg), var(--fx-base-950));
+  --fx-purple-border: color-mix(in srgb, var(--fx-purple) var(--dark-mix-border), var(--fx-base-950));
+  --fx-magenta-light: color-mix(in srgb, var(--fx-magenta) var(--dark-mix-bg), var(--fx-base-950));
+  --fx-magenta-border: color-mix(in srgb, var(--fx-magenta) var(--dark-mix-border), var(--fx-base-950));
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --fx-red-light: color-mix(in srgb, var(--fx-red) var(--dark-mix-bg), var(--fx-base-950));
+    --fx-red-border: color-mix(in srgb, var(--fx-red) var(--dark-mix-border), var(--fx-base-950));
+    --fx-orange-light: color-mix(in srgb, var(--fx-orange) var(--dark-mix-bg), var(--fx-base-950));
+    --fx-orange-border: color-mix(in srgb, var(--fx-orange) var(--dark-mix-border), var(--fx-base-950));
+    --fx-yellow-light: color-mix(in srgb, var(--fx-yellow) var(--dark-mix-bg), var(--fx-base-950));
+    --fx-yellow-border: color-mix(in srgb, var(--fx-yellow) var(--dark-mix-border), var(--fx-base-950));
+    --fx-green-light: color-mix(in srgb, var(--fx-green) var(--dark-mix-bg), var(--fx-base-950));
+    --fx-green-border: color-mix(in srgb, var(--fx-green) var(--dark-mix-border), var(--fx-base-950));
+    --fx-cyan-light: color-mix(in srgb, var(--fx-cyan) var(--dark-mix-bg), var(--fx-base-950));
+    --fx-cyan-border: color-mix(in srgb, var(--fx-cyan) var(--dark-mix-border), var(--fx-base-950));
+    --fx-blue-light: color-mix(in srgb, var(--fx-blue) var(--dark-mix-bg), var(--fx-base-950));
+    --fx-blue-border: color-mix(in srgb, var(--fx-blue) var(--dark-mix-border), var(--fx-base-950));
+    --fx-purple-light: color-mix(in srgb, var(--fx-purple) var(--dark-mix-bg), var(--fx-base-950));
+    --fx-purple-border: color-mix(in srgb, var(--fx-purple) var(--dark-mix-border), var(--fx-base-950));
+    --fx-magenta-light: color-mix(in srgb, var(--fx-magenta) var(--dark-mix-bg), var(--fx-base-950));
+    --fx-magenta-border: color-mix(in srgb, var(--fx-magenta) var(--dark-mix-border), var(--fx-base-950));
+  }
+}

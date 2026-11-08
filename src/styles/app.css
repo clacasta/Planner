@@ -207,9 +207,35 @@ body {
   gap: 0.6rem;
 }
 
-/* El nombre de la persona abre su editor (nombre, color, eliminar). */
+/* Solo para lectores de pantalla. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Foco de teclado visible en bloques y botones. */
+.activity-block:focus-visible,
+.icon-btn:focus-visible,
+.btn:focus-visible {
+  outline: 2px solid var(--fx-blue);
+  outline-offset: 2px;
+}
+
+.activity-block:focus-visible {
+  z-index: 5;
+}
+
+/* El nombre de la persona abre su editor (nombre, color, eliminar). El nombre
+   no se encoge por debajo de su ancho (como antes), salvo los muy largos. */
 .row-person-button {
-  min-width: 0;
+  color: inherit;
   padding: 0.2rem 0.35rem;
   margin-left: -0.35rem;
   border: 1px solid transparent;
@@ -227,6 +253,7 @@ body {
 }
 
 .row-person-button .row-name {
+  max-width: 9rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1115,4 +1142,356 @@ body {
   margin: 0.4rem 0 0;
   font-size: 0.76rem;
   color: var(--text-secondary);
+}
+
+/* ------------------------------------------------------------------ */
+/* Bloque 5: hoy, equilibrio, semana y plantillas                      */
+/* ------------------------------------------------------------------ */
+
+.day-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1rem;
+  align-self: center;
+}
+
+.app-title-section > .btn-small {
+  align-self: center;
+}
+
+.icon-btn.is-active {
+  background-color: var(--fx-blue-light);
+  color: var(--fx-blue);
+}
+
+/* Línea vertical de la hora actual (solo si el día que se ve es hoy). */
+.now-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background-color: var(--fx-red);
+  pointer-events: none;
+  z-index: 4;
+}
+
+.now-marker {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: 0 0.3rem;
+  border-radius: 4px;
+  background-color: var(--fx-red);
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.4;
+  pointer-events: none;
+}
+
+/* Panel de equilibrio */
+.balance-panel {
+  border-top: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface);
+  padding: 0.75rem 1.5rem 1rem;
+  max-height: 40vh;
+  overflow: auto;
+}
+
+.balance-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.balance-title {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.balance-list {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.6rem 1.5rem;
+}
+
+.balance-person {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 0.9rem;
+}
+
+.balance-numbers {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.balance-bar {
+  display: flex;
+  height: 10px;
+  margin-top: 0.3rem;
+  border-radius: 5px;
+  overflow: hidden;
+  background-color: var(--bg-surface-alt);
+  border: 1px solid var(--border-subtle);
+}
+
+.balance-segment {
+  height: 100%;
+}
+
+.balance-free {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.9rem;
+  font-size: 0.9rem;
+}
+
+.balance-time-input {
+  width: auto;
+  padding: 0.2rem 0.4rem;
+}
+
+.balance-free-result {
+  flex-basis: 100%;
+  font-weight: 600;
+}
+
+.balance-busy {
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.balance-hint,
+.balance-empty {
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* Vista semanal */
+.modal-dialog.week-dialog {
+  max-width: min(1100px, 96vw);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.week-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.week-scroll {
+  overflow-x: auto;
+  padding: 0.75rem 1.25rem;
+}
+
+.week-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.week-table th,
+.week-table td {
+  padding: 0.35rem 0.4rem;
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.week-person-col {
+  white-space: nowrap;
+  font-weight: 600;
+  width: 1%;
+}
+
+.week-person-col .row-color-dot {
+  display: inline-block;
+  margin-right: 0.3rem;
+}
+
+.week-today {
+  background-color: var(--fx-red-light);
+}
+
+.week-day-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  border: none;
+  background: transparent;
+  color: var(--fx-blue);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.1rem 0.2rem;
+  border-radius: 4px;
+}
+
+.week-day-btn:hover,
+.week-day-btn:focus-visible {
+  background-color: var(--bg-hover);
+}
+
+.week-day-empty {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.week-mini-track {
+  position: relative;
+  height: 14px;
+  border-radius: 3px;
+  background-color: var(--bg-surface-alt);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+
+.week-mini-empty {
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 4px,
+    var(--bg-hover) 4px,
+    var(--bg-hover) 6px
+  );
+}
+
+.week-mini-block {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  opacity: 0.85;
+}
+
+.week-busy {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+/* Plantillas: elegir días de la semana */
+.weekday-picker {
+  border: none;
+}
+
+.weekday-options {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.weekday-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.weekday-chip input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  cursor: pointer;
+}
+
+.weekday-chip.selected {
+  background-color: var(--fx-blue);
+  border-color: var(--fx-blue);
+  color: #ffffff;
+}
+
+.weekday-chip:focus-within {
+  outline: 2px solid var(--fx-blue);
+  outline-offset: 2px;
+}
+
+.export-option-card:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .app-title-section > .btn-small span {
+    display: none;
+  }
+  .balance-panel {
+    padding: 0.75rem;
+  }
+}
+
+/* Con los controles nuevos la cabecera no cabe en pantallas medianas: pasa a
+   dos líneas en lugar de salirse por la derecha. (En móvil se mantiene la fila
+   de acciones con desplazamiento horizontal de la regla de max-width: 768px.) */
+@media (min-width: 769px) {
+  .app-header {
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
+  }
+
+  .app-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    margin-left: auto;
+  }
+}
+
+/* Cada fila mide lo que el día entero (24 h), no lo que el contenedor: así la
+   columna de nombres (sticky) sigue visible aunque se desplace hasta las 24:00. */
+.timeline-header-row,
+.timeline-row {
+  width: max-content;
+  min-width: 100%;
+}
+
+@media (max-width: 1200px) {
+  .app-actions .btn > span {
+    display: none;
+  }
+}
+
+/* Móvil: los botones de cada persona no caben junto al nombre en 140 px (se
+   montaban sobre la línea temporal); van debajo, algo más compactos. */
+@media (max-width: 768px) {
+  .row-header {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0.1rem;
+  }
+
+  .row-actions {
+    gap: 0;
+    opacity: 1;
+  }
+
+  .row-actions .icon-btn {
+    width: 28px;
+    min-width: 28px;
+    min-height: 30px;
+    padding: 0;
+  }
+
+  /* En móvil un toque en la línea ya crea una actividad: el «+» sobra. */
+  .row-add-btn {
+    display: none;
+  }
 }

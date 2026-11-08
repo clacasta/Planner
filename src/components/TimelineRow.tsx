@@ -36,6 +36,8 @@ interface TimelineRowProps {
   onDeleteActivity?: (rowId: string, activityId: string) => void;
   /** Personas visibles de arriba y abajo (para Alt+↑/↓ en una actividad). */
   adjacentRowIds?: { up: string | null; down: string | null };
+  /** Minuto actual si el día que se ve es hoy (pinta la línea de «ahora»). */
+  nowMinutes?: number | null;
 }
 
 /** Duración por defecto al crear con un toque en pantalla táctil. */
@@ -60,6 +62,7 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({
   onDropTargetChange,
   onDeleteActivity,
   adjacentRowIds,
+  nowMinutes = null,
 }) => {
   const trackRef = useRef<HTMLDivElement>(null);
   const [creationDraft, setCreationDraft] = useState<{
@@ -230,7 +233,7 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({
           </button>
 
           <button
-            className="icon-btn"
+            className="icon-btn row-add-btn"
             onClick={() => onAddActivity?.(row.id)}
             title="Añadir actividad manual" aria-label="Añadir actividad manual"
           >
@@ -287,6 +290,14 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({
             adjacentRowIds={adjacentRowIds}
           />
         ))}
+
+        {nowMinutes !== null && (
+          <div
+            className="now-line"
+            style={{ left: `${minutesToPixels(nowMinutes, pixelsPerHour)}px` }}
+            aria-hidden="true"
+          />
+        )}
 
         {/* Bloque temporal borrador durante arrastre de creación */}
         {creationDraft && (

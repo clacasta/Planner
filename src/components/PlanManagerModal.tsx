@@ -1,8 +1,10 @@
 import React, { useRef, useState } from 'react';
-import { DayPlan } from '../domain/types';
+import { DayPlan, Member } from '../domain/types';
+import { countActivities, planToView } from '../domain/family';
 import { StorageData, SCHEMA_VERSION } from '../storage/schema';
 import { exportPlanAsJSON, exportAllPlansAsJSON, importPlanFromJSONFile } from '../storage/importExport';
 import { ImportPayload, summarizeImport } from '../storage/validate';
+import { useOverlayDismiss } from './useOverlayDismiss';
 import {
   X,
   Plus,
@@ -19,6 +21,7 @@ import {
 
 interface PlanManagerModalProps {
   isOpen: boolean;
+  members: Member[];
   plans: DayPlan[];
   activePlanId: string;
   onSelectPlan: (planId: string) => void;
@@ -31,6 +34,7 @@ interface PlanManagerModalProps {
 
 export const PlanManagerModal: React.FC<PlanManagerModalProps> = ({
   isOpen,
+  members,
   plans,
   activePlanId,
   onSelectPlan,
@@ -46,6 +50,8 @@ export const PlanManagerModal: React.FC<PlanManagerModalProps> = ({
   // Importación pendiente de confirmación: nada se aplica hasta que el usuario
   // ve qué contiene el archivo y pulsa el botón correspondiente.
   const [pendingImport, setPendingImport] = useState<ImportPayload | null>(null);
+
+  const overlayProps = useOverlayDismiss(onClose);
 
   if (!isOpen) return null;
 
@@ -78,6 +84,7 @@ export const PlanManagerModal: React.FC<PlanManagerModalProps> = ({
     exportAllPlansAsJSON({
       schemaVersion: SCHEMA_VERSION,
       activePlanId,
+      members,
       plans,
     });
   };
@@ -88,11 +95,11 @@ export const PlanManagerModal: React.FC<PlanManagerModalProps> = ({
     setPendingImport(null);
   };
 
-  const currentData: StorageData = { schemaVersion: SCHEMA_VERSION, activePlanId, plans };
+  const currentData: StorageData = { schemaVersion: SCHEMA_VERSION, activePlanId, members, plans };
   const pendingSummary = pendingImport ? summarizeImport(pendingImport) : null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" {...overlayProps}>
       <div className="modal-dialog modal-large" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div>
@@ -171,7 +178,8 @@ export const PlanManagerModal: React.FC<PlanManagerModalProps> = ({
 
             {plans.map((p) => {
               const isActive = p.id === activePlanId;
-              const totalActivities = p.rows.reduce((acc, r) => acc + r.activities.length, 0);
+              const totalActivities = countActivities(p);
+              const peopleWithActivities = Object.values(p.activities).filter((list) => list.length > 0).length;
 
               return (
                 <div
@@ -192,7 +200,7 @@ export const PlanManagerModal: React.FC<PlanManagerModalProps> = ({
                         </span>
                       )}
                       <span className="meta-item">
-                        <Users size={13} /> {p.rows.length} líneas
+                        <Users size={13} /> {peopleWithActivities} de {members.length} personas
                       </span>
                       <span className="meta-item">
                         <ActivityIcon size={13} /> {totalActivities} actividades
@@ -210,7 +218,7 @@ export const PlanManagerModal: React.FC<PlanManagerModalProps> = ({
                     </button>
                     <button
                       className="icon-btn"
-                      onClick={() => exportPlanAsJSON(p)}
+                      onClick={() => exportPlanAsJSON(planToView(members, p))}
                       title="Exportar como JSON"
                     >
                       <Download size={16} />

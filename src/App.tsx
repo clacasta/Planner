@@ -4,11 +4,25 @@ import { DEFAULT_PIXELS_PER_HOUR, MIN_PIXELS_PER_HOUR, MAX_PIXELS_PER_HOUR, form
 import { createId } from './domain/id';
 import {
   duplicateActivityToRow,
+  findActivity,
   moveActivityToRow,
-  replaceActivity,
+  removeActivity,
+  setActivityTimes,
+  upsertActivity,
 } from './domain/planOperations';
+import {
+  addMember,
+  countMemberActivities,
+  mergeViewsIntoFamily,
+  moveMember,
+  nextMemberColor,
+  planToView,
+  removeMember,
+  updateMember,
+} from './domain/family';
 import { loadStorageData, saveStorageData, savePreImportBackup, readRawStorageValue } from './storage/localStorage';
-import { StorageData } from './storage/schema';
+import { migrateStorageData } from './storage/migrations';
+import { StorageData, STORAGE_KEY } from './storage/schema';
 import { useHistoryState } from './storage/useHistoryState';
 import { ImportPayload, summarizeImport } from './storage/validate';
 import { AppHeader } from './components/AppHeader';
@@ -16,6 +30,7 @@ import { DayPlanner } from './components/DayPlanner';
 import { ActivityEditorModal } from './components/ActivityEditorModal';
 import { PlanManagerModal } from './components/PlanManagerModal';
 import { ExportMenuModal } from './components/ExportMenuModal';
+import { PersonEditorModal } from './components/PersonEditorModal';
 import './styles/app.css';
 import './export/print.css';
 
@@ -26,22 +41,17 @@ const MOBILE_DEFAULT_PIXELS_PER_HOUR = 45;
 
 const isMobileViewport = () => window.innerWidth < MOBILE_BREAKPOINT;
 
-const AVAILABLE_COLORS: FlexokiColorKey[] = [
-  'blue',
-  'purple',
-  'green',
-  'orange',
-  'cyan',
-  'red',
-  'magenta',
-  'yellow',
-];
-
 interface Toast {
   text: string;
   kind: 'info' | 'error';
   actionLabel?: string;
   action?: () => void;
+  /**
+   * Versión del historial a la que se refiere la acción. Si después hay otro
+   * cambio, el botón desaparece: «Deshacer» deshace siempre el ÚLTIMO cambio y
+   * ya no sería el que anuncia el aviso.
+   */
+  historyVersion?: number;
 }
 
 const TOAST_TIMEOUT_MS = 6000;
@@ -76,7 +86,11 @@ export function App() {
   const [editingContext, setEditingContext] = useState<{
     activity: Activity;
     rowId: string;
+    /** Recién creada: no está en el día hasta que se guarde. */
+    isNew: boolean;
   } | null>(null);
+  // Editor de persona: `memberId: null` para añadir una nueva.
+  const [personEditor, setPersonEditor] = useState<{ memberId: string | null } | null>(null);
 
   // Línea resaltada mientras se arrastra una actividad hacia otra persona
   const [dropTargetRowId, setDropTargetRowId] = useState<string | null>(null);
@@ -94,14 +108,34 @@ export function App() {
     toastTimerRef.current = window.setTimeout(() => setToast(null), TOAST_TIMEOUT_MS);
   }, []);
 
+  // Con un modal abierto, Ctrl/Cmd+Z no toca el historial: podría deshacer la
+  // propia actividad que se está editando y «Guardar» no haría nada.
+  const isAnyModalOpen =
+    isPlanManagerOpen || isExportModalOpen || editingContext !== null || personEditor !== null;
+  const isAnyModalOpenRef = useRef(isAnyModalOpen);
+  useEffect(() => {
+    isAnyModalOpenRef.current = isAnyModalOpen;
+  }, [isAnyModalOpen]);
+
   useEffect(() => {
     return () => {
       if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
     };
   }, []);
 
+  // Último contenido guardado o recibido de otra pestaña: evita reescribir lo
+  // mismo (y que dos pestañas se reenvíen los cambios una a otra sin fin).
+  const lastSavedRawRef = useRef<string | null>(null);
+  const storageRef = useRef(storage);
+  useEffect(() => {
+    storageRef.current = storage;
+  }, [storage]);
+
   // Auto-guardado avisando si falla (cuota agotada, navegación privada...)
   useEffect(() => {
+    const raw = JSON.stringify(storage);
+    if (raw === lastSavedRawRef.current) return;
+    lastSavedRawRef.current = raw;
     const ok = saveStorageData(storage);
     if (!ok && !saveErrorShownRef.current) {
       saveErrorShownRef.current = true;
@@ -135,6 +169,41 @@ export function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Otra pestaña ha guardado cambios: se cargan aquí para no pisarlos con el
+  // siguiente autoguardado (antes ganaba la última pestaña en guardar). Cada
+  // pestaña conserva el día que estaba viendo.
+  const resetHistory = history.reset;
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key !== STORAGE_KEY || e.newValue === null) return;
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(e.newValue);
+      } catch {
+        return;
+      }
+      const incoming = migrateStorageData(parsed);
+      if (!incoming) return;
+
+      const current = storageRef.current;
+      const sameContent =
+        JSON.stringify([incoming.members, incoming.plans]) ===
+        JSON.stringify([current.members, current.plans]);
+      if (sameContent) return;
+
+      const next: StorageData = incoming.plans.some((p) => p.id === current.activePlanId)
+        ? { ...incoming, activePlanId: current.activePlanId }
+        : incoming;
+      lastSavedRawRef.current = JSON.stringify(next);
+      resetHistory(next);
+      setEditingContext(null);
+      setPersonEditor(null);
+      showToast({ kind: 'info', text: 'Se han cargado los cambios hechos en otra pestaña.' });
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, [resetHistory, showToast]);
+
   const undoAction = useCallback(() => {
     const label = history.undo();
     showToast({ kind: 'info', text: label ? `Deshecho: ${label}` : 'No hay nada que deshacer.' });
@@ -152,6 +221,7 @@ export function App() {
         setIsPlanManagerOpen(false);
         setIsExportModalOpen(false);
         setEditingContext(null);
+        setPersonEditor(null);
         return;
       }
 
@@ -160,7 +230,12 @@ export function App() {
         !!target &&
         (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
 
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !isTyping) {
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        e.key.toLowerCase() === 'z' &&
+        !isTyping &&
+        !isAnyModalOpenRef.current
+      ) {
         e.preventDefault();
         if (e.shiftKey) redoAction();
         else undoAction();
@@ -175,8 +250,10 @@ export function App() {
     storage.plans[0] || {
       id: 'default-plan',
       name: 'Mi día',
-      rows: [],
+      activities: {},
     };
+  // Día resuelto con la familia: lo que se pinta, se imprime y se exporta.
+  const currentView = planToView(storage.members, currentPlan);
 
   const updateActivePlan = (
     updater: (prevPlan: DayPlan) => DayPlan,
@@ -213,65 +290,70 @@ export function App() {
     setPixelsPerHour(isMobile ? MOBILE_DEFAULT_PIXELS_PER_HOUR : DEFAULT_PIXELS_PER_HOUR);
   };
 
-  const handleToggleRowVisibility = (rowId: string) => {
-    updateActivePlan(
-      (p) => ({
-        ...p,
-        rows: p.rows.map((row) =>
-          row.id === rowId ? { ...row, visible: !row.visible } : row
-        ),
-      }),
-      'cambiar la visibilidad de una línea'
+  const memberName = (memberId: string) =>
+    storage.members.find((m) => m.id === memberId)?.name ?? 'otra persona';
+
+  const handleToggleRowVisibility = (memberId: string) => {
+    const member = storage.members.find((m) => m.id === memberId);
+    if (!member) return;
+    history.commit(
+      (prev) => updateMember(prev, memberId, { visible: !member.visible }),
+      member.visible ? `ocultar a ${member.name}` : `mostrar a ${member.name}`
     );
   };
 
-  // Reordenación vertical de miembros familiares
-  const handleMoveRow = (rowId: string, direction: 'up' | 'down') => {
-    updateActivePlan((p) => {
-      const index = p.rows.findIndex((r) => r.id === rowId);
-      if (index === -1) return p;
-      const targetIndex = direction === 'up' ? index - 1 : index + 1;
-      if (targetIndex < 0 || targetIndex >= p.rows.length) return p;
-
-      const newRows = [...p.rows];
-      const [movedRow] = newRows.splice(index, 1);
-      newRows.splice(targetIndex, 0, movedRow);
-
-      return {
-        ...p,
-        rows: newRows,
-      };
-    }, 'reordenar las líneas');
+  // Reordenación vertical de la familia (común a todos los días)
+  const handleMoveRow = (memberId: string, direction: 'up' | 'down') => {
+    history.commit((prev) => moveMember(prev, memberId, direction), 'reordenar la familia');
   };
 
-  const handleAddRow = () => {
-    const name = window.prompt('Nombre del nuevo miembro familiar:');
-    if (!name || !name.trim()) return;
+  const handleAddRow = () => setPersonEditor({ memberId: null });
 
-    const nextColorIndex = currentPlan.rows.length % AVAILABLE_COLORS.length;
-    const newRowId = createId('row');
+  const handleEditRow = (memberId: string) => setPersonEditor({ memberId });
 
-    updateActivePlan(
-      (p) => ({
-        ...p,
-        rows: [
-          ...p.rows,
-          {
-            id: newRowId,
-            name: name.trim(),
-            color: AVAILABLE_COLORS[nextColorIndex],
-            visible: true,
-            activities: [],
-          },
-        ],
-      }),
-      'añadir un miembro'
+  const handleSavePerson = (changes: { name: string; color: FlexokiColorKey }) => {
+    if (!personEditor) return;
+    const { memberId } = personEditor;
+
+    if (memberId === null) {
+      history.commit(
+        (prev) => addMember(prev, { id: createId('row'), ...changes, visible: true }),
+        `añadir a ${changes.name}`
+      );
+      return;
+    }
+    history.commit(
+      (prev) => updateMember(prev, memberId, changes),
+      `editar a ${memberName(memberId)}`
     );
   };
 
+  const handleDeletePerson = () => {
+    if (!personEditor?.memberId) return;
+    const { memberId } = personEditor;
+    const name = memberName(memberId);
+    history.commit((prev) => removeMember(prev, memberId), `eliminar a ${name}`);
+    showUndoToast(`Se ha eliminado a ${name} de la familia.`);
+  };
+
+  /** Toast con «Deshacer» ligado al cambio que se acaba de aplicar. */
+  const showUndoToast = (text: string) => {
+    showToast({
+      kind: 'info',
+      text,
+      actionLabel: 'Deshacer',
+      action: undoAction,
+      historyVersion: history.getVersion(),
+    });
+  };
+
+  /**
+   * Abre el editor con una actividad nueva SIN añadirla todavía al día: si el
+   * usuario cancela (o fue un toque accidental en el móvil) no queda nada.
+   */
   const handleCreateActivity = (rowId: string, startMinutes: number, endMinutes: number) => {
-    const targetRow = currentPlan.rows.find((r) => r.id === rowId);
-    const defaultColor = targetRow?.color || 'blue';
+    const member = storage.members.find((m) => m.id === rowId);
+    const defaultColor = member?.color || 'blue';
 
     const newActivity: Activity = {
       id: createId('act'),
@@ -281,21 +363,10 @@ export function App() {
       color: defaultColor,
     };
 
-    updateActivePlan(
-      (p) => ({
-        ...p,
-        rows: p.rows.map((row) =>
-          row.id === rowId
-            ? { ...row, activities: [...row.activities, newActivity] }
-            : row
-        ),
-      }),
-      'crear una actividad'
-    );
-
     setEditingContext({
       activity: newActivity,
       rowId,
+      isNew: true,
     });
   };
 
@@ -304,27 +375,12 @@ export function App() {
   };
 
   const handleMoveActivity = (rowId: string, activityId: string, newStartMinutes: number) => {
-    updateActivePlan(
-      (p) => ({
-        ...p,
-        rows: p.rows.map((row) => {
-          if (row.id !== rowId) return row;
-          return {
-            ...row,
-            activities: row.activities.map((act) => {
-              if (act.id !== activityId) return act;
-              const duration = act.endMinutes - act.startMinutes;
-              return {
-                ...act,
-                startMinutes: newStartMinutes,
-                endMinutes: newStartMinutes + duration,
-              };
-            }),
-          };
-        }),
-      }),
-      'mover una actividad'
-    );
+    updateActivePlan((p) => {
+      const activity = findActivity(p, rowId, activityId);
+      if (!activity) return p;
+      const duration = activity.endMinutes - activity.startMinutes;
+      return setActivityTimes(p, rowId, activityId, newStartMinutes, newStartMinutes + duration);
+    }, 'mover una actividad');
   };
 
   const handleResizeActivity = (
@@ -334,23 +390,7 @@ export function App() {
     newEndMinutes: number
   ) => {
     updateActivePlan(
-      (p) => ({
-        ...p,
-        rows: p.rows.map((row) => {
-          if (row.id !== rowId) return row;
-          return {
-            ...row,
-            activities: row.activities.map((act) => {
-              if (act.id !== activityId) return act;
-              return {
-                ...act,
-                startMinutes: newStartMinutes,
-                endMinutes: newEndMinutes,
-              };
-            }),
-          };
-        }),
-      }),
+      (p) => setActivityTimes(p, rowId, activityId, newStartMinutes, newEndMinutes),
       'cambiar la duración de una actividad'
     );
   };
@@ -359,18 +399,21 @@ export function App() {
     setEditingContext({
       activity,
       rowId,
+      isNew: false,
     });
   };
 
   const handleSaveActivity = (updatedActivity: Activity) => {
     if (!editingContext) return;
-    const { rowId } = editingContext;
+    const { rowId, isNew } = editingContext;
 
-    updateActivePlan((p) => replaceActivity(p, rowId, updatedActivity), 'editar una actividad');
+    updateActivePlan(
+      (p) => upsertActivity(p, rowId, updatedActivity),
+      isNew ? 'crear una actividad' : 'editar una actividad'
+    );
   };
 
-  const rowName = (rowId: string) =>
-    currentPlan.rows.find((r) => r.id === rowId)?.name ?? 'otra persona';
+  const rowName = memberName;
 
   /** El bloque se ha soltado sobre la línea de otra persona. */
   const handleMoveActivityToRow = (
@@ -384,12 +427,7 @@ export function App() {
       (p) => moveActivityToRow(p, rowId, activityId, targetRowId, newStartMinutes),
       `mover una actividad a ${targetName}`
     );
-    showToast({
-      kind: 'info',
-      text: `Actividad movida a la línea de ${targetName}.`,
-      actionLabel: 'Deshacer',
-      action: undoAction,
-    });
+    showUndoToast(`Actividad movida a la línea de ${targetName}.`);
   };
 
   /** Desde el editor: mover la actividad (con los cambios del formulario) a otra persona. */
@@ -399,17 +437,12 @@ export function App() {
     const targetName = rowName(targetRowId);
 
     updateActivePlan((p) => {
-      const withEdits = replaceActivity(p, rowId, updatedActivity);
+      const withEdits = upsertActivity(p, rowId, updatedActivity);
       return moveActivityToRow(withEdits, rowId, updatedActivity.id, targetRowId);
     }, `mover la actividad a ${targetName}`);
 
     setEditingContext(null);
-    showToast({
-      kind: 'info',
-      text: `Actividad movida a la línea de ${targetName}.`,
-      actionLabel: 'Deshacer',
-      action: undoAction,
-    });
+    showUndoToast(`Actividad movida a la línea de ${targetName}.`);
   };
 
   /** Desde el editor: copiar la actividad a otra persona (o duplicarla en la misma). */
@@ -420,49 +453,27 @@ export function App() {
     const targetName = rowName(targetRowId);
 
     updateActivePlan((p) => {
-      const withEdits = replaceActivity(p, rowId, updatedActivity);
+      const withEdits = upsertActivity(p, rowId, updatedActivity);
       return duplicateActivityToRow(withEdits, rowId, updatedActivity.id, targetRowId, updatedActivity);
     }, isSameRow ? 'duplicar una actividad' : `copiar una actividad a ${targetName}`);
 
     setEditingContext(null);
-    showToast({
-      kind: 'info',
-      text: isSameRow
-        ? 'Actividad duplicada.'
-        : `Actividad copiada a la línea de ${targetName}.`,
-      actionLabel: 'Deshacer',
-      action: undoAction,
-    });
+    showUndoToast(
+      isSameRow ? 'Actividad duplicada.' : `Actividad copiada a la línea de ${targetName}.`
+    );
   };
 
   const handleDeleteActivity = (activityId: string) => {
     if (!editingContext) return;
-    const { rowId } = editingContext;
-    const target = currentPlan.rows
-      .find((r) => r.id === rowId)
-      ?.activities.find((a) => a.id === activityId);
+    const { rowId, isNew } = editingContext;
+    // Una actividad nueva aún no está en el día: no hay nada que borrar.
+    if (isNew) return;
+    const target = findActivity(currentPlan, rowId, activityId);
 
-    updateActivePlan(
-      (p) => ({
-        ...p,
-        rows: p.rows.map((row) => {
-          if (row.id !== rowId) return row;
-          return {
-            ...row,
-            activities: row.activities.filter((act) => act.id !== activityId),
-          };
-        }),
-      }),
-      'eliminar una actividad'
-    );
+    updateActivePlan((p) => removeActivity(p, rowId, activityId), 'eliminar una actividad');
 
     // Cualquier cambio es deshacible: avisamos para que se descubra la función.
-    showToast({
-      kind: 'info',
-      text: `Actividad «${target?.title ?? 'sin título'}» eliminada.`,
-      actionLabel: 'Deshacer',
-      action: undoAction,
-    });
+    showUndoToast(`Actividad «${target?.title ?? 'sin título'}» eliminada.`);
   };
 
   const handleSelectPlan = (planId: string) => {
@@ -476,15 +487,8 @@ export function App() {
 
   const handleCreatePlan = (name: string) => {
     const newPlanId = createId('plan');
-    const newPlan: DayPlan = {
-      id: newPlanId,
-      name,
-      rows: [
-        { id: createId('row'), name: 'Carlos', color: 'blue', visible: true, activities: [] },
-        { id: createId('row'), name: 'Pilar', color: 'purple', visible: true, activities: [] },
-        { id: createId('row'), name: 'Leo', color: 'green', visible: true, activities: [] },
-      ],
-    };
+    // La familia es común: el día nuevo solo necesita sus actividades (vacías).
+    const newPlan: DayPlan = { id: newPlanId, name, activities: {} };
 
     history.commit(
       (prev) => ({
@@ -533,12 +537,7 @@ export function App() {
       };
     }, 'eliminar un día');
 
-    showToast({
-      kind: 'info',
-      text: 'Día eliminado.',
-      actionLabel: 'Deshacer',
-      action: undoAction,
-    });
+    showUndoToast('Día eliminado.');
   };
 
   const handleImportPlan = (payload: ImportPayload) => {
@@ -549,34 +548,34 @@ export function App() {
     if (payload.kind === 'backup') {
       history.commit(() => payload.data, 'importar una copia de seguridad');
     } else {
-      const importedPlan: DayPlan = { ...payload.plan, id: createId('plan') };
-      history.commit(
-        (prev) => ({
+      // Las líneas del archivo se asocian a la familia por id o por nombre; las
+      // personas que no existan se añaden.
+      const importedId = createId('plan');
+      history.commit((prev) => {
+        const merged = mergeViewsIntoFamily([{ ...payload.plan, id: importedId }], prev.members);
+        return {
           ...prev,
-          activePlanId: importedPlan.id,
-          plans: [...prev.plans, importedPlan],
-        }),
-        'importar un día'
-      );
+          activePlanId: importedId,
+          members: merged.members,
+          plans: [...prev.plans, merged.plans[0]],
+        };
+      }, 'importar un día');
     }
 
     setIsPlanManagerOpen(false);
-    showToast({
-      kind: 'info',
-      text: `${summary.title} importado.${backupSaved ? '' : ' No se pudo guardar copia previa.'}`,
-      actionLabel: 'Deshacer',
-      action: undoAction,
-    });
+    showUndoToast(
+      `${summary.title} importado.${backupSaved ? '' : ' No se pudo guardar copia previa.'}`
+    );
   };
 
-  const totalActivities = currentPlan.rows.reduce(
+  const totalActivities = currentView.rows.reduce(
     (acc, row) => acc + (row.visible ? row.activities.length : 0),
     0
   );
 
   // Recopilar notas para la sección de impresión
   const printNotes: Array<{ person: string; title: string; time: string; comment: string }> = [];
-  currentPlan.rows
+  currentView.rows
     .filter((r) => r.visible)
     .forEach((r) => {
       r.activities.forEach((a) => {
@@ -640,11 +639,12 @@ export function App() {
       />
 
       <DayPlanner
-        plan={currentPlan}
+        plan={currentView}
         pixelsPerHour={pixelsPerHour}
         rowHeaderWidth={200}
         onMoveRow={handleMoveRow}
         onToggleRowVisibility={handleToggleRowVisibility}
+        onEditRow={handleEditRow}
         onAddActivity={handleAddActivityManual}
         onSelectActivity={handleSelectActivity}
         onMoveActivity={handleMoveActivity}
@@ -674,7 +674,7 @@ export function App() {
 
       <footer className="app-footer">
         <div>
-          <strong>{currentPlan.rows.filter((r) => r.visible).length}</strong> líneas visibles •{' '}
+          <strong>{currentView.rows.filter((r) => r.visible).length}</strong> líneas visibles •{' '}
           <strong>{totalActivities}</strong> actividades en <em>{currentPlan.name}</em>
         </div>
         <div>
@@ -685,7 +685,8 @@ export function App() {
       {toast && (
         <div className={`app-toast app-toast-${toast.kind}`} role="status">
           <span>{toast.text}</span>
-          {toast.action && (
+          {toast.action &&
+            (toast.historyVersion === undefined || toast.historyVersion === history.version) && (
             <button className="btn btn-small" onClick={toast.action}>
               {toast.actionLabel ?? 'Deshacer'}
             </button>
@@ -701,8 +702,9 @@ export function App() {
           key={editingContext.activity.id}
           isOpen={true}
           activity={editingContext.activity}
-          rowName={currentPlan.rows.find((r) => r.id === editingContext.rowId)?.name}
-          rows={currentPlan.rows}
+          isNew={editingContext.isNew}
+          rowName={memberName(editingContext.rowId)}
+          rows={currentView.rows}
           currentRowId={editingContext.rowId}
           onMoveTo={handleMoveActivityToPerson}
           onDuplicateTo={handleDuplicateActivityToPerson}
@@ -715,6 +717,7 @@ export function App() {
       {isPlanManagerOpen && (
         <PlanManagerModal
           isOpen={true}
+          members={storage.members}
           plans={storage.plans}
           activePlanId={storage.activePlanId}
           onSelectPlan={handleSelectPlan}
@@ -729,8 +732,22 @@ export function App() {
       {isExportModalOpen && (
         <ExportMenuModal
           isOpen={true}
-          plan={currentPlan}
+          plan={currentView}
           onClose={() => setIsExportModalOpen(false)}
+        />
+      )}
+
+      {personEditor && (
+        <PersonEditorModal
+          key={personEditor.memberId ?? 'nueva'}
+          member={storage.members.find((m) => m.id === personEditor.memberId) ?? null}
+          defaultColor={nextMemberColor(storage.members)}
+          activityCount={
+            personEditor.memberId ? countMemberActivities(storage, personEditor.memberId) : 0
+          }
+          onSave={handleSavePerson}
+          onDelete={handleDeletePerson}
+          onClose={() => setPersonEditor(null)}
         />
       )}
     </div>

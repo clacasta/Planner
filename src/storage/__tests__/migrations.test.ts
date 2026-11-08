@@ -55,7 +55,8 @@ describe('migrateStorageData', () => {
   it('normaliza y fija la versión actual', () => {
     const result = migrateStorageData({ schemaVersion: 1, activePlanId: 'plan-1', plans: [PLAN] });
     expect(result?.schemaVersion).toBe(SCHEMA_VERSION);
-    expect(result?.plans[0].rows[0].activities[0].title).toBe('Trabajo');
+    expect(result?.members.map((m) => m.name)).toEqual(['Carlos']);
+    expect(result?.plans[0].activities['row-1'][0].title).toBe('Trabajo');
   });
 
   it('rechaza contenidos irrecuperables para que se conserven aparte', () => {

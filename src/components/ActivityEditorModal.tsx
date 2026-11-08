@@ -2,10 +2,17 @@ import React, { useState } from 'react';
 import { Activity, FlexokiColorKey, TimelineRow } from '../domain/types';
 import { formatTime, parseTime } from '../domain/time';
 import { X, Trash2, Check, ArrowRightLeft, Copy } from 'lucide-react';
+import { useOverlayDismiss } from './useOverlayDismiss';
+import { COLOR_OPTIONS } from './colorOptions';
 
 interface ActivityEditorModalProps {
   isOpen: boolean;
   activity: Activity | null;
+  /**
+   * La actividad aún no existe en el día: se acaba de crear arrastrando o
+   * tocando la línea y solo se guardará al pulsar «Crear actividad».
+   */
+  isNew?: boolean;
   rowName?: string;
   /** Todas las líneas del día, para mover o copiar la actividad a otra persona. */
   rows: TimelineRow[];
@@ -18,20 +25,10 @@ interface ActivityEditorModalProps {
   onClose: () => void;
 }
 
-const COLOR_OPTIONS: { key: FlexokiColorKey; label: string; bg: string; border: string }[] = [
-  { key: 'blue', label: 'Azul', bg: 'var(--fx-blue-light)', border: 'var(--fx-blue)' },
-  { key: 'purple', label: 'Morado', bg: 'var(--fx-purple-light)', border: 'var(--fx-purple)' },
-  { key: 'green', label: 'Verde', bg: 'var(--fx-green-light)', border: 'var(--fx-green)' },
-  { key: 'yellow', label: 'Amarillo', bg: 'var(--fx-yellow-light)', border: 'var(--fx-yellow)' },
-  { key: 'orange', label: 'Naranja', bg: 'var(--fx-orange-light)', border: 'var(--fx-orange)' },
-  { key: 'red', label: 'Rojo', bg: 'var(--fx-red-light)', border: 'var(--fx-red)' },
-  { key: 'cyan', label: 'Cian', bg: 'var(--fx-cyan-light)', border: 'var(--fx-cyan)' },
-  { key: 'magenta', label: 'Magenta', bg: 'var(--fx-magenta-light)', border: 'var(--fx-magenta)' },
-];
-
 export const ActivityEditorModal: React.FC<ActivityEditorModalProps> = ({
   isOpen,
   activity,
+  isNew = false,
   rowName,
   rows,
   currentRowId,
@@ -53,6 +50,8 @@ export const ActivityEditorModal: React.FC<ActivityEditorModalProps> = ({
   const [targetRowId, setTargetRowId] = useState(
     () => rows.find((row) => row.id !== currentRowId)?.id ?? currentRowId
   );
+
+  const overlayProps = useOverlayDismiss(onClose);
 
   if (!isOpen || !activity) return null;
 
@@ -132,11 +131,11 @@ export const ActivityEditorModal: React.FC<ActivityEditorModalProps> = ({
     (targetRowId === currentRowId ? 'esta línea' : 'otra persona');
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" {...overlayProps}>
       <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div>
-            <h3 className="modal-title">Editar actividad</h3>
+            <h3 className="modal-title">{isNew ? 'Nueva actividad' : 'Editar actividad'}</h3>
             {rowName && <span className="modal-subtitle">Persona: {rowName}</span>}
           </div>
           <button className="icon-btn" onClick={onClose} title="Cerrar">
@@ -260,22 +259,26 @@ export const ActivityEditorModal: React.FC<ActivityEditorModalProps> = ({
           </div>
 
           <div className="modal-actions">
-            <button
-              type="button"
-              className="btn btn-danger"
-              onClick={handleDelete}
-              title="Eliminar actividad"
-            >
-              <Trash2 size={16} />
-              <span>Eliminar</span>
-            </button>
+            {isNew ? (
+              <span />
+            ) : (
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={handleDelete}
+                title="Eliminar actividad"
+              >
+                <Trash2 size={16} />
+                <span>Eliminar</span>
+              </button>
+            )}
 
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button type="button" className="btn" onClick={onClose}>
                 Cancelar
               </button>
               <button type="submit" className="btn btn-primary">
-                Guardar cambios
+                {isNew ? 'Crear actividad' : 'Guardar cambios'}
               </button>
             </div>
           </div>

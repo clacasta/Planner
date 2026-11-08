@@ -1,12 +1,13 @@
 import React from 'react';
-import { DayPlan } from '../domain/types';
+import { DayView } from '../domain/types';
 import { exportPlanAsPNG } from '../export/exportPng';
 import { exportPlanAsJSON } from '../storage/importExport';
 import { X, Printer, Image, FileJson } from 'lucide-react';
+import { useOverlayDismiss } from './useOverlayDismiss';
 
 interface ExportMenuModalProps {
   isOpen: boolean;
-  plan: DayPlan;
+  plan: DayView;
   onClose: () => void;
 }
 
@@ -15,6 +16,8 @@ export const ExportMenuModal: React.FC<ExportMenuModalProps> = ({
   plan,
   onClose,
 }) => {
+  const overlayProps = useOverlayDismiss(onClose);
+
   if (!isOpen) return null;
 
   const handlePrint = () => {
@@ -35,7 +38,7 @@ export const ExportMenuModal: React.FC<ExportMenuModalProps> = ({
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" {...overlayProps}>
       <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div>

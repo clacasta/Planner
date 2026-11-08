@@ -207,6 +207,31 @@ body {
   gap: 0.6rem;
 }
 
+/* El nombre de la persona abre su editor (nombre, color, eliminar). */
+.row-person-button {
+  min-width: 0;
+  padding: 0.2rem 0.35rem;
+  margin-left: -0.35rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.row-person-button:hover,
+.row-person-button:focus-visible {
+  border-color: var(--border-subtle);
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.row-person-button .row-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .row-color-dot {
   width: 10px;
   height: 10px;

@@ -5,8 +5,17 @@
 // ("/", "/index.html") hacía fallar `cache.addAll` con 404 en GitHub Pages y
 // dejaba la app sin funcionamiento offline.
 
-const CACHE_NAME = 'family-day-planner-v2';
-const PRECACHE_ASSETS = ['./', './index.html', './manifest.webmanifest'];
+//
+// El build (plugin `swPrecache` en vite.config.ts) sustituye los dos marcadores
+// de abajo por un identificador de versión y por la lista de archivos generados
+// (JS/CSS con hash, iconos). Así la PRIMERA visita ya deja en caché todo lo
+// necesario para abrir sin conexión, y cada despliegue estrena caché y borra
+// la anterior en `activate` (antes los archivos viejos se acumulaban).
+const BUILD_ID = /*__BUILD_ID__*/ 'dev';
+const BUILD_ASSETS = /*__BUILD_ASSETS__*/ [];
+
+const CACHE_NAME = `family-day-planner-${BUILD_ID}`;
+const PRECACHE_ASSETS = ['./', './index.html', './manifest.webmanifest', ...BUILD_ASSETS];
 
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
@@ -59,7 +68,9 @@ self.addEventListener('fetch', (event) => {
           cache.put('./index.html', fresh.clone());
           return fresh;
         } catch {
-          const cached = (await caches.match('./index.html')) || (await caches.match('./'));
+          const cached =
+            (await caches.match('./index.html', { ignoreVary: true })) ||
+            (await caches.match('./', { ignoreVary: true }));
           return cached || Response.error();
         }
       })()
@@ -70,7 +81,10 @@ self.addEventListener('fetch', (event) => {
   // Resto de recursos propios: caché primero, rellenando en segundo plano.
   event.respondWith(
     (async () => {
-      const cached = await caches.match(request);
+      // `ignoreVary`: los <script type="module"> se piden con cabecera Origin y
+      // algunos servidores responden `Vary: Origin`; sin esto la copia
+      // precacheada (pedida sin Origin) no coincide y offline falla.
+      const cached = await caches.match(request, { ignoreVary: true });
       if (cached) {
         fetch(request)
           .then((res) => {

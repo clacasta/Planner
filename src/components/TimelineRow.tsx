@@ -16,6 +16,8 @@ interface TimelineRowProps {
   isDropTarget?: boolean;
   onMoveRow?: (rowId: string, direction: 'up' | 'down') => void;
   onToggleVisibility?: (rowId: string) => void;
+  /** Abre el editor de la persona (nombre, color, eliminar). */
+  onEditRow?: (rowId: string) => void;
   onAddActivity?: (rowId: string) => void;
   onSelectActivity?: (activity: Activity, rowId: string) => void;
   onMoveActivity?: (rowId: string, activityId: string, newStartMinutes: number) => void;
@@ -44,6 +46,7 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({
   isDropTarget = false,
   onMoveRow,
   onToggleVisibility,
+  onEditRow,
   onAddActivity,
   onSelectActivity,
   onMoveActivity,
@@ -141,10 +144,15 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({
           className="row-header"
           style={{ width: `${rowHeaderWidth}px`, minWidth: `${rowHeaderWidth}px` }}
         >
-          <div className="row-person-info">
+          <button
+            type="button"
+            className="row-person-info row-person-button"
+            onClick={() => onEditRow?.(row.id)}
+            title={`Editar a ${row.name}`}
+          >
             <span className={`row-color-dot fx-dot-${row.color}`} />
             <span className="row-name">{row.name} (oculto)</span>
-          </div>
+          </button>
           <div className="row-actions">
             <button
               className="icon-btn"
@@ -187,10 +195,15 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({
         className="row-header"
         style={{ width: `${rowHeaderWidth}px`, minWidth: `${rowHeaderWidth}px` }}
       >
-        <div className="row-person-info">
+        <button
+          type="button"
+          className="row-person-info row-person-button"
+          onClick={() => onEditRow?.(row.id)}
+          title={`Editar a ${row.name} (nombre, color, eliminar)`}
+        >
           <span className={`row-color-dot fx-dot-${row.color}`} />
           <span className="row-name">{row.name}</span>
-        </div>
+        </button>
         <div className="row-actions">
           {/* Botones de reordenación vertical */}
           <button

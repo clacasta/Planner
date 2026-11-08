@@ -1,6 +1,6 @@
-import { DayPlan } from './types';
+import { DayView } from './types';
 
-export const SAMPLE_DAY_PLAN: DayPlan = {
+export const SAMPLE_DAY_PLAN: DayView = {
   id: 'plan-sample-01',
   name: 'Día familiar de ejemplo',
   date: '2026-09-07',

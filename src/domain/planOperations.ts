@@ -1,62 +1,93 @@
-import { Activity, DayPlan, TimelineRow } from './types';
+import { Activity, DayPlan } from './types';
 import { createId } from './id';
 import { clampMinutes, TOTAL_MINUTES_IN_DAY } from './time';
+import { activitiesOf } from './family';
 
 /**
- * Operaciones puras sobre una planificación (mover y duplicar actividades entre
- * líneas). Viven aquí para poder probarlas sin DOM y para que App solo tenga que
- * envolverlas en un `commit` con historial.
+ * Operaciones puras sobre las actividades de un día. Las actividades se guardan
+ * por id de miembro (`plan.activities[memberId]`). Viven aquí para poder
+ * probarlas sin DOM y para que App solo tenga que envolverlas en un `commit`
+ * con historial. Todas devuelven el MISMO plan si no hay nada que cambiar.
  */
 
-export function findRow(plan: DayPlan, rowId: string): TimelineRow | undefined {
-  return plan.rows.find((row) => row.id === rowId);
-}
-
-export function findActivity(row: TimelineRow | undefined, activityId: string): Activity | undefined {
-  return row?.activities.find((activity) => activity.id === activityId);
-}
-
-function withUpdatedRows(
+export function findActivity(
   plan: DayPlan,
-  update: (row: TimelineRow) => TimelineRow
-): DayPlan {
-  return { ...plan, rows: plan.rows.map(update) };
+  memberId: string,
+  activityId: string
+): Activity | undefined {
+  return activitiesOf(plan, memberId).find((activity) => activity.id === activityId);
 }
 
-export function replaceActivity(plan: DayPlan, rowId: string, activity: Activity): DayPlan {
-  const row = findRow(plan, rowId);
-  if (!row || !findActivity(row, activity.id)) return plan;
+function withMemberActivities(plan: DayPlan, memberId: string, list: Activity[]): DayPlan {
+  return { ...plan, activities: { ...plan.activities, [memberId]: list } };
+}
 
-  return withUpdatedRows(plan, (current) =>
-    current.id === rowId
-      ? {
-          ...current,
-          activities: current.activities.map((a) => (a.id === activity.id ? activity : a)),
-        }
-      : current
+export function replaceActivity(plan: DayPlan, memberId: string, activity: Activity): DayPlan {
+  if (!findActivity(plan, memberId, activity.id)) return plan;
+  return withMemberActivities(
+    plan,
+    memberId,
+    activitiesOf(plan, memberId).map((a) => (a.id === activity.id ? activity : a))
   );
 }
 
+/** Añade una actividad. No hace nada si ya hay una con ese id en esa persona. */
+export function addActivity(plan: DayPlan, memberId: string, activity: Activity): DayPlan {
+  if (findActivity(plan, memberId, activity.id)) return plan;
+  return withMemberActivities(plan, memberId, [...activitiesOf(plan, memberId), activity]);
+}
+
 /**
- * Mueve una actividad a otra línea (persona), manteniendo su duración. Si se
- * indica `newStartMinutes`, la actividad se coloca a esa hora respetando los
- * límites del día.
+ * Guarda el resultado del editor: actualiza la actividad si ya existía o la
+ * añade si es nueva (las actividades recién creadas no se guardan hasta que el
+ * usuario pulsa «Crear», para que cancelar no deje bloques vacíos).
+ */
+export function upsertActivity(plan: DayPlan, memberId: string, activity: Activity): DayPlan {
+  return findActivity(plan, memberId, activity.id)
+    ? replaceActivity(plan, memberId, activity)
+    : addActivity(plan, memberId, activity);
+}
+
+export function removeActivity(plan: DayPlan, memberId: string, activityId: string): DayPlan {
+  if (!findActivity(plan, memberId, activityId)) return plan;
+  return withMemberActivities(
+    plan,
+    memberId,
+    activitiesOf(plan, memberId).filter((a) => a.id !== activityId)
+  );
+}
+
+/** Cambia las horas de una actividad (mover o redimensionar en la misma línea). */
+export function setActivityTimes(
+  plan: DayPlan,
+  memberId: string,
+  activityId: string,
+  startMinutes: number,
+  endMinutes: number
+): DayPlan {
+  const activity = findActivity(plan, memberId, activityId);
+  if (!activity) return plan;
+  if (activity.startMinutes === startMinutes && activity.endMinutes === endMinutes) return plan;
+  return replaceActivity(plan, memberId, { ...activity, startMinutes, endMinutes });
+}
+
+/**
+ * Mueve una actividad a otra persona, manteniendo su duración. Si se indica
+ * `newStartMinutes`, la actividad se coloca a esa hora respetando los límites
+ * del día.
  *
- * Devuelve el mismo plan sin tocar si el origen, el destino o la actividad no
- * existen, o si origen y destino coinciden.
+ * Devuelve el mismo plan si la actividad no existe o si origen y destino
+ * coinciden.
  */
 export function moveActivityToRow(
   plan: DayPlan,
-  fromRowId: string,
+  fromMemberId: string,
   activityId: string,
-  toRowId: string,
+  toMemberId: string,
   newStartMinutes?: number
 ): DayPlan {
-  const sourceRow = findRow(plan, fromRowId);
-  const targetRow = findRow(plan, toRowId);
-  const activity = findActivity(sourceRow, activityId);
-
-  if (!activity || !targetRow || fromRowId === toRowId) return plan;
+  const activity = findActivity(plan, fromMemberId, activityId);
+  if (!activity || fromMemberId === toMemberId) return plan;
 
   const duration = activity.endMinutes - activity.startMinutes;
   const moved: Activity =
@@ -67,37 +98,27 @@ export function moveActivityToRow(
           return { ...activity, startMinutes: start, endMinutes: start + duration };
         })();
 
-  return withUpdatedRows(plan, (row) => {
-    if (row.id === fromRowId) {
-      return { ...row, activities: row.activities.filter((a) => a.id !== activityId) };
-    }
-    if (row.id === toRowId) {
-      return { ...row, activities: [...row.activities, moved] };
-    }
-    return row;
-  });
+  const withoutSource = removeActivity(plan, fromMemberId, activityId);
+  return withMemberActivities(withoutSource, toMemberId, [
+    ...activitiesOf(withoutSource, toMemberId),
+    moved,
+  ]);
 }
 
 /**
- * Copia una actividad a otra línea (misma persona u otra) con un id nuevo.
+ * Copia una actividad a una persona (la misma u otra) con un id nuevo.
  * `overrides` permite aplicar los cambios hechos en el editor antes de copiar.
  */
 export function duplicateActivityToRow(
   plan: DayPlan,
-  fromRowId: string,
+  fromMemberId: string,
   activityId: string,
-  toRowId: string,
+  toMemberId: string,
   overrides?: Partial<Activity>
 ): DayPlan {
-  const sourceRow = findRow(plan, fromRowId);
-  const targetRow = findRow(plan, toRowId);
-  const activity = findActivity(sourceRow, activityId);
-
-  if (!activity || !targetRow) return plan;
+  const activity = findActivity(plan, fromMemberId, activityId);
+  if (!activity) return plan;
 
   const copy: Activity = { ...activity, ...overrides, id: createId('act') };
-
-  return withUpdatedRows(plan, (row) =>
-    row.id === toRowId ? { ...row, activities: [...row.activities, copy] } : row
-  );
+  return withMemberActivities(plan, toMemberId, [...activitiesOf(plan, toMemberId), copy]);
 }

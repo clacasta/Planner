@@ -20,6 +20,14 @@ export interface HistoryController<T> {
   redo: () => string | null;
   canUndo: boolean;
   canRedo: boolean;
+  /**
+   * Número de cambios aplicados (commit, deshacer o rehacer). Sirve para saber
+   * si una acción ofrecida en la interfaz (p. ej. el «Deshacer» de un aviso)
+   * sigue refiriéndose al último cambio.
+   */
+  version: number;
+  /** Versión actual leída al instante (útil justo después de un `commit`). */
+  getVersion: () => number;
 }
 
 /**
@@ -39,11 +47,17 @@ export function useHistoryState<T>(initial: T): HistoryController<T> {
   const pastRef = useRef<HistoryEntry<T>[]>([]);
   const futureRef = useRef<HistoryEntry<T>[]>([]);
   const [availability, setAvailability] = useState({ canUndo: false, canRedo: false });
+  const versionRef = useRef(0);
+  const [version, setVersion] = useState(0);
 
   const applyValue = useCallback((next: T) => {
     valueRef.current = next;
+    versionRef.current += 1;
     setValue(next);
+    setVersion(versionRef.current);
   }, []);
+
+  const getVersion = useCallback(() => versionRef.current, []);
 
   const syncAvailability = useCallback(() => {
     setAvailability({
@@ -111,5 +125,7 @@ export function useHistoryState<T>(initial: T): HistoryController<T> {
     redo,
     canUndo: availability.canUndo,
     canRedo: availability.canRedo,
+    version,
+    getVersion,
   };
 }

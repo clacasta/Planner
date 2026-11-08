@@ -52,8 +52,15 @@
 - **Deshacer / rehacer**: historial de hasta 50 cambios con `Ctrl/Cmd+Z` y `Ctrl/Cmd+Shift+Z`, botones en la cabecera y aviso con acción «Deshacer» al eliminar.
 - **Importación segura**: validación estricta y normalización del JSON, resumen previo (qué contiene y qué se ha corregido o descartado), copia automática del estado actual antes de aplicar y la importación se puede deshacer.
 - **Tus datos, a salvo**: si el almacenamiento guardado está dañado se conserva una copia intacta y se avisa; si no se puede guardar (cuota agotada, navegación privada) aparece un aviso; y si algo falla al dibujar, hay pantalla de error con descarga de emergencia en lugar de página en blanco.
+- **Hoy y ahora**: al abrir la app se muestra el día con la fecha de hoy y una línea roja marca la hora actual; el botón **Hoy** lleva (o crea) el día de hoy, y las flechas `‹ ›` pasan al día anterior o siguiente por fecha.
+- **Equilibrio del día**: horas ocupadas y libres de cada persona, desglose por color de actividad y «¿quién está libre a las HH:MM?».
+- **Vista semanal**: lunes a domingo con una mini línea de 24 h por persona y día; pulsa un día para abrirlo o crearlo.
+- **Plantillas**: usa cualquier día como plantilla y cópialo a un rango de fechas eligiendo los días de la semana (p. ej. un día laborable de lunes a viernes).
+- **Exportar al calendario y a Excel**: `.ics` (un evento por actividad, para Google/Apple/Outlook) y `.csv`.
+- **Tema oscuro**: automático según el sistema o fijado a mano (claro/oscuro); al imprimir siempre sale en claro.
+- **Accesible con teclado**: diálogos que retienen y devuelven el foco, todos los botones etiquetados y los bloques de actividad manejables sin ratón (ver atajos).
 - **Varias pestañas a la vez**: si cambias algo en una pestaña, las demás cargan esos cambios en lugar de pisarlos al guardar; cada pestaña conserva el día que estaba viendo.
-- **Calidad automatizada**: 84 tests con Vitest sobre la lógica de dominio y almacenamiento, ESLint y `tsc` en CI; el despliegue a GitHub Pages se bloquea si algo falla.
+- **Calidad automatizada**: 127 tests con Vitest (dominio, almacenamiento y componentes con Testing Library), ESLint y `tsc` en CI; el despliegue a GitHub Pages se bloquea si algo falla.
 
 ---
 
@@ -139,6 +146,7 @@ family-day-planner/
 - **Copiar o mover desde el editor**: al abrir una actividad, el desplegable «Mover o copiar a otra persona» permite moverla o duplicarla (también en la misma línea, para duplicar una actividad).
 - **Redimensionar**: arrastra los extremos izquierdo o derecho (mínimo 15 minutos).
 - **Atajos**: `Ctrl/Cmd+Z` deshacer · `Ctrl/Cmd+Shift+Z` rehacer · `Esc` cerrar diálogos.
+- **Teclado en una actividad** (llega con `Tab`): `Enter` editar · `←/→` mover 15 min · `Mayús+←/→` cambiar la hora final · `Alt+↑/↓` pasarla a la persona de arriba/abajo · `Supr` eliminar (se puede deshacer).
 
 ---
 
@@ -182,8 +190,8 @@ npm run build
 
 ## ⚠️ Limitaciones conocidas (y siguientes pasos)
 
-- No hay **plantillas ni recurrencia** («todos los martes natación», aplicar un día laborable a lunes-viernes): cada día se duplica a mano.
-- La vista es **exclusivamente diaria**: no hay vista semanal ni salto rápido entre días.
+- No hay **recurrencia viva**: las plantillas crean copias; si cambias la plantilla después, los días ya creados no se actualizan.
+- La **vista semanal es de consulta**: para editar se abre el día.
 - La visibilidad de cada persona es común a todos los días (no se puede ocultar a alguien solo un día concreto).
 - Sin recordatorios ni notificaciones.
 
@@ -229,7 +237,14 @@ Esta aplicación es **100% estática y de ejecución local**.
 - **Safe imports**: strict JSON validation and normalization, a summary of what the file contains (including corrections and dropped items) before anything is applied, an automatic backup of the current state, and undoable imports.
 - **Your data stays yours**: corrupted storage is preserved intact with a clear warning, failed saves (quota, private mode) are surfaced, and a render error shows a recovery screen with an emergency data download instead of a blank page.
 - **Multiple tabs**: a change made in one tab is loaded by the others instead of being overwritten on the next save; each tab keeps the day it was showing.
-- **Automated quality**: 84 Vitest tests over the domain and storage layers, plus ESLint and `tsc` in CI; the Pages deployment is gated on all of them passing.
+- **Today and now**: the app opens today's day and a red line marks the current time; **Today** jumps to (or creates) today, and `‹ ›` move between days by date.
+- **Daily balance**: busy/free hours per person, a breakdown by activity color, and "who is free at HH:MM?".
+- **Week view**: Monday to Sunday with a mini 24-hour bar per person and day; click a day to open or create it.
+- **Templates**: copy any day to a date range on chosen weekdays (e.g. a work day Monday to Friday).
+- **Calendar & spreadsheet export**: `.ics` (one event per activity) and `.csv`.
+- **Dark theme**: follows the system or can be fixed to light/dark; printing is always light.
+- **Keyboard accessible**: focus-trapping dialogs, labelled buttons, and activity blocks you can edit, move, resize and delete from the keyboard.
+- **Automated quality**: 127 Vitest tests (domain, storage and components with Testing Library), plus ESLint and `tsc` in CI; the Pages deployment is gated on all of them passing.
 
 ---
 
@@ -277,8 +292,8 @@ npm run typecheck && npm run lint && npm run test
 
 ## ⚠️ Known Limitations
 
-- No **templates or recurrence** (e.g. "swimming every Tuesday").
-- Daily view only: no week view.
+- No live recurrence: templates create copies, so later changes to the template don't update days already created.
+- The week view is read-only: open a day to edit it.
 - A person's visibility is shared by all days (you can't hide someone on a single day only).
 
 ---

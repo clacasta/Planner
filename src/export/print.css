@@ -20,7 +20,12 @@
   .icon-btn,
   .resize-handle,
   .btn,
-  .row-actions {
+  .row-actions,
+  .balance-panel,
+  .now-line,
+  .now-marker,
+  .app-toast,
+  .app-banner {
     display: none !important;
   }
 

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FlexokiColorKey, Member } from '../domain/types';
 import { X, Trash2, Check } from 'lucide-react';
 import { useOverlayDismiss } from './useOverlayDismiss';
+import { useDialogFocus } from './useDialogFocus';
 import { COLOR_OPTIONS } from './colorOptions';
 
 interface PersonEditorModalProps {
@@ -33,6 +34,7 @@ export const PersonEditorModal: React.FC<PersonEditorModalProps> = ({
   const [color, setColor] = useState<FlexokiColorKey>(member?.color ?? defaultColor);
   const [error, setError] = useState<string | null>(null);
   const overlayProps = useOverlayDismiss(onClose);
+  const dialogRef = useDialogFocus<HTMLDivElement>();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,8 +62,10 @@ export const PersonEditorModal: React.FC<PersonEditorModalProps> = ({
   return (
     <div className="modal-overlay" {...overlayProps}>
       <div
+        ref={dialogRef}
         className="modal-dialog"
         role="dialog"
+        tabIndex={-1}
         aria-modal="true"
         aria-labelledby="person-editor-title"
         onClick={(e) => e.stopPropagation()}

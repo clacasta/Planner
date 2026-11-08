@@ -20,9 +20,9 @@ import {
   removeMember,
   updateMember,
 } from './domain/family';
-import { loadStorageData, saveStorageData, savePreImportBackup, readRawStorageValue } from './storage/localStorage';
-import { migrateStorageData } from './storage/migrations';
-import { StorageData, STORAGE_KEY } from './storage/schema';
+import { loadStorageData, savePreImportBackup, readRawStorageValue } from './storage/localStorage';
+import { StorageData } from './storage/schema';
+import { useStorageSync } from './storage/useStorageSync';
 import { useHistoryState } from './storage/useHistoryState';
 import { ImportPayload, summarizeImport } from './storage/validate';
 import { AppHeader } from './components/AppHeader';
@@ -31,6 +31,20 @@ import { ActivityEditorModal } from './components/ActivityEditorModal';
 import { PlanManagerModal } from './components/PlanManagerModal';
 import { ExportMenuModal } from './components/ExportMenuModal';
 import { PersonEditorModal } from './components/PersonEditorModal';
+import { BalancePanel } from './components/BalancePanel';
+import { WeekViewModal } from './components/WeekViewModal';
+import { CopyToDatesModal } from './components/CopyToDatesModal';
+import { useNow } from './components/useNow';
+import { useTheme } from './components/useTheme';
+import {
+  adjacentPlanId,
+  findPlanForDate,
+  formatDayName,
+  minutesSinceMidnight,
+  todayISO,
+} from './domain/dates';
+import { copyPlanToDates } from './domain/templates';
+import { useToast } from './components/useToast';
 import './styles/app.css';
 import './export/print.css';
 
@@ -40,21 +54,6 @@ const MOBILE_BREAKPOINT = 768;
 const MOBILE_DEFAULT_PIXELS_PER_HOUR = 45;
 
 const isMobileViewport = () => window.innerWidth < MOBILE_BREAKPOINT;
-
-interface Toast {
-  text: string;
-  kind: 'info' | 'error';
-  actionLabel?: string;
-  action?: () => void;
-  /**
-   * Versión del historial a la que se refiere la acción. Si después hay otro
-   * cambio, el botón desaparece: «Deshacer» deshace siempre el ÚLTIMO cambio y
-   * ya no sería el que anuncia el aviso.
-   */
-  historyVersion?: number;
-}
-
-const TOAST_TIMEOUT_MS = 6000;
 
 function downloadRawJson(content: string, filename: string): void {
   const blob = new Blob([content], { type: 'application/json' });
@@ -69,7 +68,12 @@ function downloadRawJson(content: string, filename: string): void {
 }
 
 export function App() {
-  const [initialLoad] = useState(() => loadStorageData());
+  const [initialLoad] = useState(() => {
+    const loaded = loadStorageData();
+    // Si hay un día con la fecha de hoy, se abre ese.
+    const today = findPlanForDate(loaded.data.plans, todayISO());
+    return today ? { ...loaded, data: { ...loaded.data, activePlanId: today.id } } : loaded;
+  });
   const history = useHistoryState<StorageData>(initialLoad.data);
   const storage = history.value;
 
@@ -92,60 +96,52 @@ export function App() {
   // Editor de persona: `memberId: null` para añadir una nueva.
   const [personEditor, setPersonEditor] = useState<{ memberId: string | null } | null>(null);
 
+  // Paneles y diálogos del Bloque 5
+  const [isBalanceOpen, setIsBalanceOpen] = useState(false);
+  const [isWeekOpen, setIsWeekOpen] = useState(false);
+  const [copyToDatesPlanId, setCopyToDatesPlanId] = useState<string | null>(null);
+  // Se incrementa para pedir que la vista se desplace a la hora actual.
+  const [scrollToNowSignal, setScrollToNowSignal] = useState(0);
+  const now = useNow();
+  const { preference: theme, cycleTheme } = useTheme();
+
   // Línea resaltada mientras se arrastra una actividad hacia otra persona
   const [dropTargetRowId, setDropTargetRowId] = useState<string | null>(null);
 
   // Avisos
   const [loadWarning, setLoadWarning] = useState<string | null>(initialLoad.warning ?? null);
   const [preservedKey] = useState<string | undefined>(initialLoad.preservedKey);
-  const [toast, setToast] = useState<Toast | null>(null);
-  const toastTimerRef = useRef<number | null>(null);
-  const saveErrorShownRef = useRef(false);
-
-  const showToast = useCallback((next: Toast) => {
-    if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
-    setToast(next);
-    toastTimerRef.current = window.setTimeout(() => setToast(null), TOAST_TIMEOUT_MS);
-  }, []);
+  const { toast, showToast, dismissToast } = useToast();
 
   // Con un modal abierto, Ctrl/Cmd+Z no toca el historial: podría deshacer la
   // propia actividad que se está editando y «Guardar» no haría nada.
   const isAnyModalOpen =
-    isPlanManagerOpen || isExportModalOpen || editingContext !== null || personEditor !== null;
+    isPlanManagerOpen ||
+    isExportModalOpen ||
+    editingContext !== null ||
+    personEditor !== null ||
+    isWeekOpen ||
+    copyToDatesPlanId !== null;
   const isAnyModalOpenRef = useRef(isAnyModalOpen);
   useEffect(() => {
     isAnyModalOpenRef.current = isAnyModalOpen;
   }, [isAnyModalOpen]);
 
-  useEffect(() => {
-    return () => {
-      if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
-    };
-  }, []);
-
-  // Último contenido guardado o recibido de otra pestaña: evita reescribir lo
-  // mismo (y que dos pestañas se reenvíen los cambios una a otra sin fin).
-  const lastSavedRawRef = useRef<string | null>(null);
-  const storageRef = useRef(storage);
-  useEffect(() => {
-    storageRef.current = storage;
-  }, [storage]);
-
-  // Auto-guardado avisando si falla (cuota agotada, navegación privada...)
-  useEffect(() => {
-    const raw = JSON.stringify(storage);
-    if (raw === lastSavedRawRef.current) return;
-    lastSavedRawRef.current = raw;
-    const ok = saveStorageData(storage);
-    if (!ok && !saveErrorShownRef.current) {
-      saveErrorShownRef.current = true;
+  const resetHistory = history.reset;
+  useStorageSync({
+    storage,
+    onSaveError: () =>
       showToast({
         kind: 'error',
         text: 'No se han podido guardar los cambios en este navegador. Descarga una copia desde «Exportar» para no perderlos.',
-      });
-    }
-    if (ok) saveErrorShownRef.current = false;
-  }, [storage, showToast]);
+      }),
+    onExternalChange: (next) => {
+      resetHistory(next);
+      setEditingContext(null);
+      setPersonEditor(null);
+      showToast({ kind: 'info', text: 'Se han cargado los cambios hechos en otra pestaña.' });
+    },
+  });
 
   // Detectar cambios de viewport (rotación, resize de ventana).
   // Si entra en móvil y el zoom es el de escritorio, lo bajamos;
@@ -169,41 +165,6 @@ export function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Otra pestaña ha guardado cambios: se cargan aquí para no pisarlos con el
-  // siguiente autoguardado (antes ganaba la última pestaña en guardar). Cada
-  // pestaña conserva el día que estaba viendo.
-  const resetHistory = history.reset;
-  useEffect(() => {
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key !== STORAGE_KEY || e.newValue === null) return;
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(e.newValue);
-      } catch {
-        return;
-      }
-      const incoming = migrateStorageData(parsed);
-      if (!incoming) return;
-
-      const current = storageRef.current;
-      const sameContent =
-        JSON.stringify([incoming.members, incoming.plans]) ===
-        JSON.stringify([current.members, current.plans]);
-      if (sameContent) return;
-
-      const next: StorageData = incoming.plans.some((p) => p.id === current.activePlanId)
-        ? { ...incoming, activePlanId: current.activePlanId }
-        : incoming;
-      lastSavedRawRef.current = JSON.stringify(next);
-      resetHistory(next);
-      setEditingContext(null);
-      setPersonEditor(null);
-      showToast({ kind: 'info', text: 'Se han cargado los cambios hechos en otra pestaña.' });
-    };
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
-  }, [resetHistory, showToast]);
-
   const undoAction = useCallback(() => {
     const label = history.undo();
     showToast({ kind: 'info', text: label ? `Deshecho: ${label}` : 'No hay nada que deshacer.' });
@@ -222,6 +183,8 @@ export function App() {
         setIsExportModalOpen(false);
         setEditingContext(null);
         setPersonEditor(null);
+        setIsWeekOpen(false);
+        setCopyToDatesPlanId(null);
         return;
       }
 
@@ -254,6 +217,8 @@ export function App() {
     };
   // Día resuelto con la familia: lo que se pinta, se imprime y se exporta.
   const currentView = planToView(storage.members, currentPlan);
+  const today = todayISO(now);
+  const nowMinutes = currentPlan.date === today ? minutesSinceMidnight(now) : null;
 
   const updateActivePlan = (
     updater: (prevPlan: DayPlan) => DayPlan,
@@ -428,6 +393,15 @@ export function App() {
       `mover una actividad a ${targetName}`
     );
     showUndoToast(`Actividad movida a la línea de ${targetName}.`);
+    // Con teclado el bloque cambia de línea (se vuelve a montar): se le
+    // devuelve el foco para poder seguir moviéndolo.
+    if (document.activeElement?.getAttribute('data-activity-id') === activityId) {
+      // setTimeout (no requestAnimationFrame): se ejecuta aunque la pestaña
+      // no se esté pintando, y ya después de que React haya movido el bloque.
+      window.setTimeout(() =>
+        document.querySelector<HTMLElement>(`[data-activity-id="${activityId}"]`)?.focus()
+      );
+    }
   };
 
   /** Desde el editor: mover la actividad (con los cambios del formulario) a otra persona. */
@@ -468,7 +442,13 @@ export function App() {
     const { rowId, isNew } = editingContext;
     // Una actividad nueva aún no está en el día: no hay nada que borrar.
     if (isNew) return;
+    deleteActivity(rowId, activityId);
+  };
+
+  /** Elimina una actividad (desde el editor o con Supr) con aviso deshacible. */
+  const deleteActivity = (rowId: string, activityId: string) => {
     const target = findActivity(currentPlan, rowId, activityId);
+    if (!target) return;
 
     updateActivePlan((p) => removeActivity(p, rowId, activityId), 'eliminar una actividad');
 
@@ -483,6 +463,56 @@ export function App() {
       { undoable: false }
     );
     setIsPlanManagerOpen(false);
+  };
+
+  /** Cambia de día sin pasar por el historial (como el gestor de días). */
+  const goToPlan = (planId: string) => {
+    history.commit((prev) => ({ ...prev, activePlanId: planId }), 'cambiar de día', {
+      undoable: false,
+    });
+  };
+
+  const prevPlanId = adjacentPlanId(storage.plans, currentPlan.id, 'prev');
+  const nextPlanId = adjacentPlanId(storage.plans, currentPlan.id, 'next');
+
+  /** Crea un día vacío con fecha y lo abre. */
+  const createDayForDate = (date: string, label: string) => {
+    const newPlanId = createId('plan');
+    history.commit(
+      (prev) => ({
+        ...prev,
+        activePlanId: newPlanId,
+        plans: [...prev.plans, { id: newPlanId, name: formatDayName(date), date, activities: {} }],
+      }),
+      label
+    );
+  };
+
+  /** «Hoy»: abre (o crea) el día con la fecha de hoy y va a la hora actual. */
+  const handleToday = () => {
+    const existing = findPlanForDate(storage.plans, today);
+    if (existing) {
+      if (existing.id !== currentPlan.id) goToPlan(existing.id);
+    } else {
+      createDayForDate(today, 'crear el día de hoy');
+      showUndoToast(`Creado el día de hoy (${formatDayName(today)}).`);
+    }
+    setScrollToNowSignal((n) => n + 1);
+  };
+
+  const handleCopyToDates = (dates: string[]) => {
+    if (!copyToDatesPlanId) return;
+    const sourceName = storage.plans.find((p) => p.id === copyToDatesPlanId)?.name ?? 'el día';
+    const preview = copyPlanToDates(storage, copyToDatesPlanId, dates);
+    if (preview.created.length === 0) return;
+    history.commit(
+      (prev) => copyPlanToDates(prev, copyToDatesPlanId, dates).state,
+      `copiar «${sourceName}» a ${preview.created.length} fecha(s)`
+    );
+    showUndoToast(
+      `Creados ${preview.created.length} día(s) a partir de «${sourceName}».` +
+        (preview.skipped.length > 0 ? ` ${preview.skipped.length} fecha(s) ya tenían día.` : '')
+    );
   };
 
   const handleCreatePlan = (name: string) => {
@@ -636,12 +666,19 @@ export function App() {
         onAddRow={handleAddRow}
         onOpenPlanManager={() => setIsPlanManagerOpen(true)}
         onExport={() => setIsExportModalOpen(true)}
+        onPrevDay={prevPlanId ? () => goToPlan(prevPlanId) : null}
+        onNextDay={nextPlanId ? () => goToPlan(nextPlanId) : null}
+        onToday={handleToday}
+        onOpenWeek={() => setIsWeekOpen(true)}
+        isBalanceOpen={isBalanceOpen}
+        onToggleBalance={() => setIsBalanceOpen((open) => !open)}
+        theme={theme}
+        onCycleTheme={cycleTheme}
       />
 
       <DayPlanner
         plan={currentView}
         pixelsPerHour={pixelsPerHour}
-        rowHeaderWidth={200}
         onMoveRow={handleMoveRow}
         onToggleRowVisibility={handleToggleRowVisibility}
         onEditRow={handleEditRow}
@@ -653,7 +690,18 @@ export function App() {
         onMoveActivityToRow={handleMoveActivityToRow}
         dropTargetRowId={dropTargetRowId}
         onDropTargetChange={setDropTargetRowId}
+        onDeleteActivity={deleteActivity}
+        nowMinutes={nowMinutes}
+        scrollToNowSignal={scrollToNowSignal}
       />
+
+      {isBalanceOpen && (
+        <BalancePanel
+          view={currentView}
+          defaultMinute={minutesSinceMidnight(now)}
+          onClose={() => setIsBalanceOpen(false)}
+        />
+      )}
 
       {/* Sección inferior de notas exclusiva para impresión A4 */}
       {printNotes.length > 0 && (
@@ -691,7 +739,7 @@ export function App() {
               {toast.actionLabel ?? 'Deshacer'}
             </button>
           )}
-          <button className="icon-btn" onClick={() => setToast(null)} title="Cerrar aviso">
+          <button className="icon-btn" onClick={dismissToast} title="Cerrar aviso" aria-label="Cerrar aviso">
             ✕
           </button>
         </div>
@@ -725,6 +773,10 @@ export function App() {
           onDuplicatePlan={handleDuplicatePlan}
           onDeletePlan={handleDeletePlan}
           onImportPlan={handleImportPlan}
+          onCopyToDates={(planId) => {
+            setIsPlanManagerOpen(false);
+            setCopyToDatesPlanId(planId);
+          }}
           onClose={() => setIsPlanManagerOpen(false)}
         />
       )}
@@ -748,6 +800,32 @@ export function App() {
           onSave={handleSavePerson}
           onDelete={handleDeletePerson}
           onClose={() => setPersonEditor(null)}
+        />
+      )}
+
+      {isWeekOpen && (
+        <WeekViewModal
+          members={storage.members}
+          plans={storage.plans}
+          referenceDate={currentPlan.date ?? today}
+          onOpenDay={(planId) => {
+            goToPlan(planId);
+            setIsWeekOpen(false);
+          }}
+          onCreateDay={(date) => {
+            createDayForDate(date, 'crear un día');
+            setIsWeekOpen(false);
+          }}
+          onClose={() => setIsWeekOpen(false)}
+        />
+      )}
+
+      {copyToDatesPlanId && storage.plans.some((p) => p.id === copyToDatesPlanId) && (
+        <CopyToDatesModal
+          plan={storage.plans.find((p) => p.id === copyToDatesPlanId)!}
+          takenDates={storage.plans.map((p) => p.date).filter((d): d is string => !!d)}
+          onCopy={handleCopyToDates}
+          onClose={() => setCopyToDatesPlanId(null)}
         />
       )}
     </div>

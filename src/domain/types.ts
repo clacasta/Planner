@@ -59,13 +59,6 @@ export interface DayView {
 }
 
 export interface LayoutActivity extends Activity {
+  /** Sub-carril (0, 1, 2...) en el que se pinta para no tapar a otras. */
   laneIndex: number;
-  totalLanes: number;
-}
-
-export interface PlannerConfig {
-  pixelsPerHour: number;
-  gridStepMinutes: number;
-  minDurationMinutes: number;
-  rowHeaderWidth: number;
 }

@@ -1,17 +1,9 @@
-import { DayView, FlexokiColorKey } from '../domain/types';
+import { DayView } from '../domain/types';
 import { calculateLayoutActivities } from '../domain/collisions';
 import { formatTime } from '../domain/time';
+import { ACCENT_HEX, NEUTRAL_HEX } from '../domain/palette';
 
-const FLEXOKI_HEX_COLORS: Record<FlexokiColorKey, { bg: string; border: string; text: string }> = {
-  red: { bg: '#FBECEB', border: '#E89E9B', text: '#AF3029' },
-  orange: { bg: '#FCF0E8', border: '#F0B38F', text: '#BC5215' },
-  yellow: { bg: '#FAF5E1', border: '#E9D27B', text: '#AD8301' },
-  green: { bg: '#F2F6E3', border: '#BFD384', text: '#66800B' },
-  cyan: { bg: '#E6F5F3', border: '#91D3CD', text: '#24837B' },
-  blue: { bg: '#EBF2FA', border: '#95BEE8', text: '#205EA6' },
-  purple: { bg: '#F2EEFB', border: '#BAA6E8', text: '#5E409D' },
-  magenta: { bg: '#FAECF4', border: '#E69DCD', text: '#A02F6F' },
-};
+const FLEXOKI_HEX_COLORS = ACCENT_HEX;
 
 function roundRect(
   ctx: CanvasRenderingContext2D,
@@ -82,41 +74,41 @@ export function exportPlanAsPNG(plan: DayView, pixelsPerHour: number = 70): void
   ctx.scale(scale, scale);
 
   // Fondo general
-  ctx.fillStyle = '#FFFCF0'; // Flexoki Paper
+  ctx.fillStyle = NEUTRAL_HEX.paper; // Flexoki Paper
   ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
   // 1. Cabecera (Título y fecha)
-  ctx.fillStyle = '#100F0F';
+  ctx.fillStyle = NEUTRAL_HEX.black;
   ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.fillText(plan.name, 20, 36);
 
   if (plan.date) {
-    ctx.fillStyle = '#6F6E69';
+    ctx.fillStyle = NEUTRAL_HEX.base600;
     ctx.font = '500 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.fillText(plan.date, 20, 56);
   }
 
   // 2. Regla horaria de 24 horas
   const startY = headerHeight;
-  ctx.fillStyle = '#F2EFDF';
+  ctx.fillStyle = NEUTRAL_HEX.base50;
   ctx.fillRect(20, startY, rowHeaderWidth + trackWidth, timelineHeaderHeight);
-  ctx.strokeStyle = '#DAD8CE';
+  ctx.strokeStyle = NEUTRAL_HEX.base150;
   ctx.lineWidth = 1;
   ctx.strokeRect(20, startY, rowHeaderWidth + trackWidth, timelineHeaderHeight);
 
-  ctx.fillStyle = '#6F6E69';
+  ctx.fillStyle = NEUTRAL_HEX.base600;
   ctx.font = '600 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.fillText('Persona / Línea', 32, startY + 20);
 
   for (let hour = 0; hour < 24; hour++) {
     const x = 20 + rowHeaderWidth + hour * pixelsPerHour;
-    ctx.strokeStyle = '#DAD8CE';
+    ctx.strokeStyle = NEUTRAL_HEX.base150;
     ctx.beginPath();
     ctx.moveTo(x, startY);
     ctx.lineTo(x, startY + timelineHeaderHeight + rowsTotalHeight);
     ctx.stroke();
 
-    ctx.fillStyle = '#575653';
+    ctx.fillStyle = NEUTRAL_HEX.base700;
     ctx.fillText(`${hour.toString().padStart(2, '0')}:00`, x + 4, startY + 20);
   }
 
@@ -128,10 +120,10 @@ export function exportPlanAsPNG(plan: DayView, pixelsPerHour: number = 70): void
     const { layoutActivities } = calculateLayoutActivities(row.activities);
 
     // Fondo fila
-    ctx.fillStyle = rowIndex % 2 === 0 ? '#FFFFFF' : '#FAF8F0';
+    ctx.fillStyle = rowIndex % 2 === 0 ? NEUTRAL_HEX.white : NEUTRAL_HEX.rowAlt;
     ctx.fillRect(20, currentY, rowHeaderWidth + trackWidth, currentHeight);
 
-    ctx.strokeStyle = '#DAD8CE';
+    ctx.strokeStyle = NEUTRAL_HEX.base150;
     ctx.strokeRect(20, currentY, rowHeaderWidth + trackWidth, currentHeight);
 
     // Nombre de la persona y dot de color
@@ -141,7 +133,7 @@ export function exportPlanAsPNG(plan: DayView, pixelsPerHour: number = 70): void
     ctx.arc(32, currentY + currentHeight / 2, 5, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = '#100F0F';
+    ctx.fillStyle = NEUTRAL_HEX.black;
     ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.fillText(row.name, 44, currentY + currentHeight / 2 + 4);
 
@@ -175,7 +167,7 @@ export function exportPlanAsPNG(plan: DayView, pixelsPerHour: number = 70): void
 
         if (actWidth > 55) {
           ctx.font = '500 8.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-          ctx.fillStyle = '#6F6E69';
+          ctx.fillStyle = NEUTRAL_HEX.base600;
           ctx.fillText(`${formatTime(act.startMinutes)} - ${formatTime(act.endMinutes)}`, actLeft + 6, actTop + 27);
         }
 
@@ -189,7 +181,7 @@ export function exportPlanAsPNG(plan: DayView, pixelsPerHour: number = 70): void
   // 4. Sección de notas al pie
   if (notesWithContext.length > 0) {
     currentY += 15;
-    ctx.fillStyle = '#100F0F';
+    ctx.fillStyle = NEUTRAL_HEX.black;
     ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.fillText('Notas y comentarios', 20, currentY);
 
@@ -202,12 +194,12 @@ export function exportPlanAsPNG(plan: DayView, pixelsPerHour: number = 70): void
       const noteX = 20 + col * (canvasWidth / 2);
       const noteY = currentY + row * 20;
 
-      ctx.fillStyle = '#205EA6';
+      ctx.fillStyle = ACCENT_HEX.blue.text;
       ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.fillText(`• [${note.person}] ${note.title} (${note.time}): `, noteX, noteY);
 
       const prefixWidth = ctx.measureText(`• [${note.person}] ${note.title} (${note.time}): `).width;
-      ctx.fillStyle = '#575653';
+      ctx.fillStyle = NEUTRAL_HEX.base700;
       ctx.font = '10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.fillText(note.comment, noteX + prefixWidth, noteY);
     });

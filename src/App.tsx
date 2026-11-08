@@ -20,9 +20,9 @@ import {
   removeMember,
   updateMember,
 } from './domain/family';
-import { loadStorageData, saveStorageData, savePreImportBackup, readRawStorageValue } from './storage/localStorage';
-import { migrateStorageData } from './storage/migrations';
-import { StorageData, STORAGE_KEY } from './storage/schema';
+import { loadStorageData, savePreImportBackup, readRawStorageValue } from './storage/localStorage';
+import { StorageData } from './storage/schema';
+import { useStorageSync } from './storage/useStorageSync';
 import { useHistoryState } from './storage/useHistoryState';
 import { ImportPayload, summarizeImport } from './storage/validate';
 import { AppHeader } from './components/AppHeader';
@@ -31,6 +31,7 @@ import { ActivityEditorModal } from './components/ActivityEditorModal';
 import { PlanManagerModal } from './components/PlanManagerModal';
 import { ExportMenuModal } from './components/ExportMenuModal';
 import { PersonEditorModal } from './components/PersonEditorModal';
+import { useToast } from './components/useToast';
 import './styles/app.css';
 import './export/print.css';
 
@@ -40,21 +41,6 @@ const MOBILE_BREAKPOINT = 768;
 const MOBILE_DEFAULT_PIXELS_PER_HOUR = 45;
 
 const isMobileViewport = () => window.innerWidth < MOBILE_BREAKPOINT;
-
-interface Toast {
-  text: string;
-  kind: 'info' | 'error';
-  actionLabel?: string;
-  action?: () => void;
-  /**
-   * Versión del historial a la que se refiere la acción. Si después hay otro
-   * cambio, el botón desaparece: «Deshacer» deshace siempre el ÚLTIMO cambio y
-   * ya no sería el que anuncia el aviso.
-   */
-  historyVersion?: number;
-}
-
-const TOAST_TIMEOUT_MS = 6000;
 
 function downloadRawJson(content: string, filename: string): void {
   const blob = new Blob([content], { type: 'application/json' });
@@ -98,15 +84,7 @@ export function App() {
   // Avisos
   const [loadWarning, setLoadWarning] = useState<string | null>(initialLoad.warning ?? null);
   const [preservedKey] = useState<string | undefined>(initialLoad.preservedKey);
-  const [toast, setToast] = useState<Toast | null>(null);
-  const toastTimerRef = useRef<number | null>(null);
-  const saveErrorShownRef = useRef(false);
-
-  const showToast = useCallback((next: Toast) => {
-    if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
-    setToast(next);
-    toastTimerRef.current = window.setTimeout(() => setToast(null), TOAST_TIMEOUT_MS);
-  }, []);
+  const { toast, showToast, dismissToast } = useToast();
 
   // Con un modal abierto, Ctrl/Cmd+Z no toca el historial: podría deshacer la
   // propia actividad que se está editando y «Guardar» no haría nada.
@@ -117,35 +95,21 @@ export function App() {
     isAnyModalOpenRef.current = isAnyModalOpen;
   }, [isAnyModalOpen]);
 
-  useEffect(() => {
-    return () => {
-      if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
-    };
-  }, []);
-
-  // Último contenido guardado o recibido de otra pestaña: evita reescribir lo
-  // mismo (y que dos pestañas se reenvíen los cambios una a otra sin fin).
-  const lastSavedRawRef = useRef<string | null>(null);
-  const storageRef = useRef(storage);
-  useEffect(() => {
-    storageRef.current = storage;
-  }, [storage]);
-
-  // Auto-guardado avisando si falla (cuota agotada, navegación privada...)
-  useEffect(() => {
-    const raw = JSON.stringify(storage);
-    if (raw === lastSavedRawRef.current) return;
-    lastSavedRawRef.current = raw;
-    const ok = saveStorageData(storage);
-    if (!ok && !saveErrorShownRef.current) {
-      saveErrorShownRef.current = true;
+  const resetHistory = history.reset;
+  useStorageSync({
+    storage,
+    onSaveError: () =>
       showToast({
         kind: 'error',
         text: 'No se han podido guardar los cambios en este navegador. Descarga una copia desde «Exportar» para no perderlos.',
-      });
-    }
-    if (ok) saveErrorShownRef.current = false;
-  }, [storage, showToast]);
+      }),
+    onExternalChange: (next) => {
+      resetHistory(next);
+      setEditingContext(null);
+      setPersonEditor(null);
+      showToast({ kind: 'info', text: 'Se han cargado los cambios hechos en otra pestaña.' });
+    },
+  });
 
   // Detectar cambios de viewport (rotación, resize de ventana).
   // Si entra en móvil y el zoom es el de escritorio, lo bajamos;
@@ -168,41 +132,6 @@ export function App() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
-  // Otra pestaña ha guardado cambios: se cargan aquí para no pisarlos con el
-  // siguiente autoguardado (antes ganaba la última pestaña en guardar). Cada
-  // pestaña conserva el día que estaba viendo.
-  const resetHistory = history.reset;
-  useEffect(() => {
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key !== STORAGE_KEY || e.newValue === null) return;
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(e.newValue);
-      } catch {
-        return;
-      }
-      const incoming = migrateStorageData(parsed);
-      if (!incoming) return;
-
-      const current = storageRef.current;
-      const sameContent =
-        JSON.stringify([incoming.members, incoming.plans]) ===
-        JSON.stringify([current.members, current.plans]);
-      if (sameContent) return;
-
-      const next: StorageData = incoming.plans.some((p) => p.id === current.activePlanId)
-        ? { ...incoming, activePlanId: current.activePlanId }
-        : incoming;
-      lastSavedRawRef.current = JSON.stringify(next);
-      resetHistory(next);
-      setEditingContext(null);
-      setPersonEditor(null);
-      showToast({ kind: 'info', text: 'Se han cargado los cambios hechos en otra pestaña.' });
-    };
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
-  }, [resetHistory, showToast]);
 
   const undoAction = useCallback(() => {
     const label = history.undo();
@@ -654,7 +583,6 @@ export function App() {
       <DayPlanner
         plan={currentView}
         pixelsPerHour={pixelsPerHour}
-        rowHeaderWidth={200}
         onMoveRow={handleMoveRow}
         onToggleRowVisibility={handleToggleRowVisibility}
         onEditRow={handleEditRow}
@@ -705,7 +633,7 @@ export function App() {
               {toast.actionLabel ?? 'Deshacer'}
             </button>
           )}
-          <button className="icon-btn" onClick={() => setToast(null)} title="Cerrar aviso" aria-label="Cerrar aviso">
+          <button className="icon-btn" onClick={dismissToast} title="Cerrar aviso" aria-label="Cerrar aviso">
             ✕
           </button>
         </div>

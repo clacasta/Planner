@@ -62,12 +62,12 @@ describe('calculateLayoutActivities', () => {
     expect(maxLanes).toBe(2);
   });
 
-  it('expone totalLanes coherente con maxLanes', () => {
-    const { layoutActivities, maxLanes } = calculateLayoutActivities([
+  it('asigna cada actividad solapada a un carril distinto', () => {
+    const { layoutActivities } = calculateLayoutActivities([
       activity('a', 540, 600),
       activity('b', 560, 620),
     ]);
 
-    expect(layoutActivities.every((a) => a.totalLanes === maxLanes)).toBe(true);
+    expect(new Set(layoutActivities.map((a) => a.laneIndex)).size).toBe(2);
   });
 });

@@ -53,12 +53,9 @@ export function calculateLayoutActivities(activities: Activity[]): {
 
   const maxLanes = Math.max(1, laneEndTimes.length);
 
-  // Calcular grupos de solapamiento conectados para saber cuántos carriles necesita cada grupo
-  // En este primer cálculo para visualización limpia, asignamos totalLanes para la fila o por racimo
   const layoutActivities: LayoutActivity[] = assignedActivities.map((item) => ({
     ...item.activity,
     laneIndex: item.laneIndex,
-    totalLanes: maxLanes,
   }));
 
   return {

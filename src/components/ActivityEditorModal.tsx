@@ -2,10 +2,16 @@ import React, { useState } from 'react';
 import { Activity, FlexokiColorKey, TimelineRow } from '../domain/types';
 import { formatTime, parseTime } from '../domain/time';
 import { X, Trash2, Check, ArrowRightLeft, Copy } from 'lucide-react';
+import { useOverlayDismiss } from './useOverlayDismiss';
 
 interface ActivityEditorModalProps {
   isOpen: boolean;
   activity: Activity | null;
+  /**
+   * La actividad aún no existe en el día: se acaba de crear arrastrando o
+   * tocando la línea y solo se guardará al pulsar «Crear actividad».
+   */
+  isNew?: boolean;
   rowName?: string;
   /** Todas las líneas del día, para mover o copiar la actividad a otra persona. */
   rows: TimelineRow[];
@@ -32,6 +38,7 @@ const COLOR_OPTIONS: { key: FlexokiColorKey; label: string; bg: string; border: 
 export const ActivityEditorModal: React.FC<ActivityEditorModalProps> = ({
   isOpen,
   activity,
+  isNew = false,
   rowName,
   rows,
   currentRowId,
@@ -53,6 +60,8 @@ export const ActivityEditorModal: React.FC<ActivityEditorModalProps> = ({
   const [targetRowId, setTargetRowId] = useState(
     () => rows.find((row) => row.id !== currentRowId)?.id ?? currentRowId
   );
+
+  const overlayProps = useOverlayDismiss(onClose);
 
   if (!isOpen || !activity) return null;
 
@@ -132,11 +141,11 @@ export const ActivityEditorModal: React.FC<ActivityEditorModalProps> = ({
     (targetRowId === currentRowId ? 'esta línea' : 'otra persona');
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" {...overlayProps}>
       <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div>
-            <h3 className="modal-title">Editar actividad</h3>
+            <h3 className="modal-title">{isNew ? 'Nueva actividad' : 'Editar actividad'}</h3>
             {rowName && <span className="modal-subtitle">Persona: {rowName}</span>}
           </div>
           <button className="icon-btn" onClick={onClose} title="Cerrar">
@@ -260,22 +269,26 @@ export const ActivityEditorModal: React.FC<ActivityEditorModalProps> = ({
           </div>
 
           <div className="modal-actions">
-            <button
-              type="button"
-              className="btn btn-danger"
-              onClick={handleDelete}
-              title="Eliminar actividad"
-            >
-              <Trash2 size={16} />
-              <span>Eliminar</span>
-            </button>
+            {isNew ? (
+              <span />
+            ) : (
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={handleDelete}
+                title="Eliminar actividad"
+              >
+                <Trash2 size={16} />
+                <span>Eliminar</span>
+              </button>
+            )}
 
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button type="button" className="btn" onClick={onClose}>
                 Cancelar
               </button>
               <button type="submit" className="btn btn-primary">
-                Guardar cambios
+                {isNew ? 'Crear actividad' : 'Guardar cambios'}
               </button>
             </div>
           </div>

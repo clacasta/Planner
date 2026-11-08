@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  addActivity,
+  familyRowsFrom,
+  upsertActivity,
   duplicateActivityToRow,
   moveActivityToRow,
   replaceActivity,
@@ -144,5 +147,47 @@ describe('duplicateActivityToRow', () => {
   it('no hace nada si la actividad no existe', () => {
     const original = makePlan();
     expect(duplicateActivityToRow(original, 'row-leo', 'fantasma', 'row-carlos')).toBe(original);
+  });
+});
+describe('addActivity / upsertActivity', () => {
+  const nueva = { id: 'nueva', title: 'Cena', startMinutes: 1260, endMinutes: 1320, color: 'yellow' as const };
+
+  it('añade la actividad a su línea', () => {
+    const plan = addActivity(makePlan(), 'row-leo', nueva);
+    expect(row(plan, 'row-leo').activities.map((a) => a.id)).toEqual(['a2', 'nueva']);
+  });
+
+  it('no duplica si ya existe ni inventa líneas', () => {
+    const original = makePlan();
+    expect(addActivity(original, 'row-leo', { ...nueva, id: 'a2' })).toBe(original);
+    expect(addActivity(original, 'row-fantasma', nueva)).toBe(original);
+  });
+
+  it('upsert añade si es nueva y reemplaza si ya existía', () => {
+    const added = upsertActivity(makePlan(), 'row-carlos', nueva);
+    expect(row(added, 'row-carlos').activities).toHaveLength(2);
+
+    const replaced = upsertActivity(added, 'row-carlos', { ...nueva, title: 'Cena familiar' });
+    expect(row(replaced, 'row-carlos').activities).toHaveLength(2);
+    expect(row(replaced, 'row-carlos').activities[1].title).toBe('Cena familiar');
+  });
+});
+
+describe('familyRowsFrom', () => {
+  it('copia las personas (nombre, color, orden, visibilidad) sin actividades y con ids nuevos', () => {
+    const source = makePlan();
+    source.rows[1].visible = false;
+    const rows = familyRowsFrom(source);
+
+    expect(rows.map((r) => [r.name, r.color, r.visible])).toEqual([
+      ['Carlos', 'blue', true],
+      ['Leo', 'green', false],
+    ]);
+    expect(rows.every((r) => r.activities.length === 0)).toBe(true);
+    expect(rows.map((r) => r.id)).not.toContain('row-carlos');
+  });
+
+  it('devuelve una lista vacía si no hay día de referencia', () => {
+    expect(familyRowsFrom(undefined)).toEqual([]);
   });
 });

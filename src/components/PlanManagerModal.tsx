@@ -3,6 +3,7 @@ import { DayPlan } from '../domain/types';
 import { StorageData, SCHEMA_VERSION } from '../storage/schema';
 import { exportPlanAsJSON, exportAllPlansAsJSON, importPlanFromJSONFile } from '../storage/importExport';
 import { ImportPayload, summarizeImport } from '../storage/validate';
+import { useOverlayDismiss } from './useOverlayDismiss';
 import {
   X,
   Plus,
@@ -46,6 +47,8 @@ export const PlanManagerModal: React.FC<PlanManagerModalProps> = ({
   // Importación pendiente de confirmación: nada se aplica hasta que el usuario
   // ve qué contiene el archivo y pulsa el botón correspondiente.
   const [pendingImport, setPendingImport] = useState<ImportPayload | null>(null);
+
+  const overlayProps = useOverlayDismiss(onClose);
 
   if (!isOpen) return null;
 
@@ -92,7 +95,7 @@ export const PlanManagerModal: React.FC<PlanManagerModalProps> = ({
   const pendingSummary = pendingImport ? summarizeImport(pendingImport) : null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" {...overlayProps}>
       <div className="modal-dialog modal-large" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div>

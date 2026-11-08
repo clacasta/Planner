@@ -4,8 +4,9 @@ import { DEFAULT_PIXELS_PER_HOUR, MIN_PIXELS_PER_HOUR, MAX_PIXELS_PER_HOUR, form
 import { createId } from './domain/id';
 import {
   duplicateActivityToRow,
+  familyRowsFrom,
   moveActivityToRow,
-  replaceActivity,
+  upsertActivity,
 } from './domain/planOperations';
 import { loadStorageData, saveStorageData, savePreImportBackup, readRawStorageValue } from './storage/localStorage';
 import { StorageData } from './storage/schema';
@@ -42,6 +43,12 @@ interface Toast {
   kind: 'info' | 'error';
   actionLabel?: string;
   action?: () => void;
+  /**
+   * Versión del historial a la que se refiere la acción. Si después hay otro
+   * cambio, el botón desaparece: «Deshacer» deshace siempre el ÚLTIMO cambio y
+   * ya no sería el que anuncia el aviso.
+   */
+  historyVersion?: number;
 }
 
 const TOAST_TIMEOUT_MS = 6000;
@@ -76,6 +83,8 @@ export function App() {
   const [editingContext, setEditingContext] = useState<{
     activity: Activity;
     rowId: string;
+    /** Recién creada: no está en el día hasta que se guarde. */
+    isNew: boolean;
   } | null>(null);
 
   // Línea resaltada mientras se arrastra una actividad hacia otra persona
@@ -93,6 +102,14 @@ export function App() {
     setToast(next);
     toastTimerRef.current = window.setTimeout(() => setToast(null), TOAST_TIMEOUT_MS);
   }, []);
+
+  // Con un modal abierto, Ctrl/Cmd+Z no toca el historial: podría deshacer la
+  // propia actividad que se está editando y «Guardar» no haría nada.
+  const isAnyModalOpen = isPlanManagerOpen || isExportModalOpen || editingContext !== null;
+  const isAnyModalOpenRef = useRef(isAnyModalOpen);
+  useEffect(() => {
+    isAnyModalOpenRef.current = isAnyModalOpen;
+  }, [isAnyModalOpen]);
 
   useEffect(() => {
     return () => {
@@ -160,7 +177,12 @@ export function App() {
         !!target &&
         (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
 
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !isTyping) {
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        e.key.toLowerCase() === 'z' &&
+        !isTyping &&
+        !isAnyModalOpenRef.current
+      ) {
         e.preventDefault();
         if (e.shiftKey) redoAction();
         else undoAction();
@@ -269,6 +291,21 @@ export function App() {
     );
   };
 
+  /** Toast con «Deshacer» ligado al cambio que se acaba de aplicar. */
+  const showUndoToast = (text: string) => {
+    showToast({
+      kind: 'info',
+      text,
+      actionLabel: 'Deshacer',
+      action: undoAction,
+      historyVersion: history.getVersion(),
+    });
+  };
+
+  /**
+   * Abre el editor con una actividad nueva SIN añadirla todavía al día: si el
+   * usuario cancela (o fue un toque accidental en el móvil) no queda nada.
+   */
   const handleCreateActivity = (rowId: string, startMinutes: number, endMinutes: number) => {
     const targetRow = currentPlan.rows.find((r) => r.id === rowId);
     const defaultColor = targetRow?.color || 'blue';
@@ -281,21 +318,10 @@ export function App() {
       color: defaultColor,
     };
 
-    updateActivePlan(
-      (p) => ({
-        ...p,
-        rows: p.rows.map((row) =>
-          row.id === rowId
-            ? { ...row, activities: [...row.activities, newActivity] }
-            : row
-        ),
-      }),
-      'crear una actividad'
-    );
-
     setEditingContext({
       activity: newActivity,
       rowId,
+      isNew: true,
     });
   };
 
@@ -359,14 +385,18 @@ export function App() {
     setEditingContext({
       activity,
       rowId,
+      isNew: false,
     });
   };
 
   const handleSaveActivity = (updatedActivity: Activity) => {
     if (!editingContext) return;
-    const { rowId } = editingContext;
+    const { rowId, isNew } = editingContext;
 
-    updateActivePlan((p) => replaceActivity(p, rowId, updatedActivity), 'editar una actividad');
+    updateActivePlan(
+      (p) => upsertActivity(p, rowId, updatedActivity),
+      isNew ? 'crear una actividad' : 'editar una actividad'
+    );
   };
 
   const rowName = (rowId: string) =>
@@ -384,12 +414,7 @@ export function App() {
       (p) => moveActivityToRow(p, rowId, activityId, targetRowId, newStartMinutes),
       `mover una actividad a ${targetName}`
     );
-    showToast({
-      kind: 'info',
-      text: `Actividad movida a la línea de ${targetName}.`,
-      actionLabel: 'Deshacer',
-      action: undoAction,
-    });
+    showUndoToast(`Actividad movida a la línea de ${targetName}.`);
   };
 
   /** Desde el editor: mover la actividad (con los cambios del formulario) a otra persona. */
@@ -399,17 +424,12 @@ export function App() {
     const targetName = rowName(targetRowId);
 
     updateActivePlan((p) => {
-      const withEdits = replaceActivity(p, rowId, updatedActivity);
+      const withEdits = upsertActivity(p, rowId, updatedActivity);
       return moveActivityToRow(withEdits, rowId, updatedActivity.id, targetRowId);
     }, `mover la actividad a ${targetName}`);
 
     setEditingContext(null);
-    showToast({
-      kind: 'info',
-      text: `Actividad movida a la línea de ${targetName}.`,
-      actionLabel: 'Deshacer',
-      action: undoAction,
-    });
+    showUndoToast(`Actividad movida a la línea de ${targetName}.`);
   };
 
   /** Desde el editor: copiar la actividad a otra persona (o duplicarla en la misma). */
@@ -420,24 +440,21 @@ export function App() {
     const targetName = rowName(targetRowId);
 
     updateActivePlan((p) => {
-      const withEdits = replaceActivity(p, rowId, updatedActivity);
+      const withEdits = upsertActivity(p, rowId, updatedActivity);
       return duplicateActivityToRow(withEdits, rowId, updatedActivity.id, targetRowId, updatedActivity);
     }, isSameRow ? 'duplicar una actividad' : `copiar una actividad a ${targetName}`);
 
     setEditingContext(null);
-    showToast({
-      kind: 'info',
-      text: isSameRow
-        ? 'Actividad duplicada.'
-        : `Actividad copiada a la línea de ${targetName}.`,
-      actionLabel: 'Deshacer',
-      action: undoAction,
-    });
+    showUndoToast(
+      isSameRow ? 'Actividad duplicada.' : `Actividad copiada a la línea de ${targetName}.`
+    );
   };
 
   const handleDeleteActivity = (activityId: string) => {
     if (!editingContext) return;
-    const { rowId } = editingContext;
+    const { rowId, isNew } = editingContext;
+    // Una actividad nueva aún no está en el día: no hay nada que borrar.
+    if (isNew) return;
     const target = currentPlan.rows
       .find((r) => r.id === rowId)
       ?.activities.find((a) => a.id === activityId);
@@ -457,12 +474,7 @@ export function App() {
     );
 
     // Cualquier cambio es deshacible: avisamos para que se descubra la función.
-    showToast({
-      kind: 'info',
-      text: `Actividad «${target?.title ?? 'sin título'}» eliminada.`,
-      actionLabel: 'Deshacer',
-      action: undoAction,
-    });
+    showUndoToast(`Actividad «${target?.title ?? 'sin título'}» eliminada.`);
   };
 
   const handleSelectPlan = (planId: string) => {
@@ -476,14 +488,16 @@ export function App() {
 
   const handleCreatePlan = (name: string) => {
     const newPlanId = createId('plan');
+    // El día nuevo trae la misma familia que el día actual (antes eran tres
+    // nombres fijos de ejemplo, ignorando a las personas del usuario).
+    const familyRows = familyRowsFrom(currentPlan);
     const newPlan: DayPlan = {
       id: newPlanId,
       name,
-      rows: [
-        { id: createId('row'), name: 'Carlos', color: 'blue', visible: true, activities: [] },
-        { id: createId('row'), name: 'Pilar', color: 'purple', visible: true, activities: [] },
-        { id: createId('row'), name: 'Leo', color: 'green', visible: true, activities: [] },
-      ],
+      rows:
+        familyRows.length > 0
+          ? familyRows
+          : [{ id: createId('row'), name: 'Yo', color: 'blue', visible: true, activities: [] }],
     };
 
     history.commit(
@@ -533,12 +547,7 @@ export function App() {
       };
     }, 'eliminar un día');
 
-    showToast({
-      kind: 'info',
-      text: 'Día eliminado.',
-      actionLabel: 'Deshacer',
-      action: undoAction,
-    });
+    showUndoToast('Día eliminado.');
   };
 
   const handleImportPlan = (payload: ImportPayload) => {
@@ -561,12 +570,9 @@ export function App() {
     }
 
     setIsPlanManagerOpen(false);
-    showToast({
-      kind: 'info',
-      text: `${summary.title} importado.${backupSaved ? '' : ' No se pudo guardar copia previa.'}`,
-      actionLabel: 'Deshacer',
-      action: undoAction,
-    });
+    showUndoToast(
+      `${summary.title} importado.${backupSaved ? '' : ' No se pudo guardar copia previa.'}`
+    );
   };
 
   const totalActivities = currentPlan.rows.reduce(
@@ -685,7 +691,8 @@ export function App() {
       {toast && (
         <div className={`app-toast app-toast-${toast.kind}`} role="status">
           <span>{toast.text}</span>
-          {toast.action && (
+          {toast.action &&
+            (toast.historyVersion === undefined || toast.historyVersion === history.version) && (
             <button className="btn btn-small" onClick={toast.action}>
               {toast.actionLabel ?? 'Deshacer'}
             </button>
@@ -701,6 +708,7 @@ export function App() {
           key={editingContext.activity.id}
           isOpen={true}
           activity={editingContext.activity}
+          isNew={editingContext.isNew}
           rowName={currentPlan.rows.find((r) => r.id === editingContext.rowId)?.name}
           rows={currentPlan.rows}
           currentRowId={editingContext.rowId}

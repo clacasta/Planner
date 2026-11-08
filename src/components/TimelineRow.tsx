@@ -32,6 +32,10 @@ interface TimelineRowProps {
   ) => void;
   /** Avisa de la línea resaltada mientras se arrastra en vertical. */
   onDropTargetChange?: (rowId: string | null) => void;
+  /** Teclado: eliminar una actividad enfocada. */
+  onDeleteActivity?: (rowId: string, activityId: string) => void;
+  /** Personas visibles de arriba y abajo (para Alt+↑/↓ en una actividad). */
+  adjacentRowIds?: { up: string | null; down: string | null };
 }
 
 /** Duración por defecto al crear con un toque en pantalla táctil. */
@@ -54,6 +58,8 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({
   onCreateActivity,
   onMoveActivityToRow,
   onDropTargetChange,
+  onDeleteActivity,
+  adjacentRowIds,
 }) => {
   const trackRef = useRef<HTMLDivElement>(null);
   const [creationDraft, setCreationDraft] = useState<{
@@ -158,7 +164,7 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({
               className="icon-btn"
               disabled={isFirst}
               onClick={() => onMoveRow?.(row.id, 'up')}
-              title="Mover arriba"
+              title="Mover arriba" aria-label="Mover arriba"
             >
               <ChevronUp size={15} />
             </button>
@@ -166,14 +172,14 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({
               className="icon-btn"
               disabled={isLast}
               onClick={() => onMoveRow?.(row.id, 'down')}
-              title="Mover abajo"
+              title="Mover abajo" aria-label="Mover abajo"
             >
               <ChevronDown size={15} />
             </button>
             <button
               className="icon-btn"
               onClick={() => onToggleVisibility?.(row.id)}
-              title="Mostrar línea"
+              title="Mostrar línea" aria-label="Mostrar línea"
             >
               <EyeOff size={16} />
             </button>
@@ -210,7 +216,7 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({
             className="icon-btn"
             disabled={isFirst}
             onClick={() => onMoveRow?.(row.id, 'up')}
-            title="Mover persona arriba"
+            title="Mover persona arriba" aria-label="Mover persona arriba"
           >
             <ChevronUp size={15} />
           </button>
@@ -218,7 +224,7 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({
             className="icon-btn"
             disabled={isLast}
             onClick={() => onMoveRow?.(row.id, 'down')}
-            title="Mover persona abajo"
+            title="Mover persona abajo" aria-label="Mover persona abajo"
           >
             <ChevronDown size={15} />
           </button>
@@ -226,14 +232,14 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({
           <button
             className="icon-btn"
             onClick={() => onAddActivity?.(row.id)}
-            title="Añadir actividad manual"
+            title="Añadir actividad manual" aria-label="Añadir actividad manual"
           >
             <Plus size={16} />
           </button>
           <button
             className="icon-btn"
             onClick={() => onToggleVisibility?.(row.id)}
-            title="Ocultar línea"
+            title="Ocultar línea" aria-label="Ocultar línea"
           >
             <Eye size={16} />
           </button>
@@ -277,6 +283,8 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({
               onMoveActivityToRow?.(row.id, actId, targetRowId, newStart)
             }
             onDropTargetChange={onDropTargetChange}
+            onDelete={(actId) => onDeleteActivity?.(row.id, actId)}
+            adjacentRowIds={adjacentRowIds}
           />
         ))}
 

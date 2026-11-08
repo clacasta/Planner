@@ -5,6 +5,7 @@ import { StorageData, SCHEMA_VERSION } from '../storage/schema';
 import { exportPlanAsJSON, exportAllPlansAsJSON, importPlanFromJSONFile } from '../storage/importExport';
 import { ImportPayload, summarizeImport } from '../storage/validate';
 import { useOverlayDismiss } from './useOverlayDismiss';
+import { useDialogFocus } from './useDialogFocus';
 import {
   X,
   Plus,
@@ -52,6 +53,7 @@ export const PlanManagerModal: React.FC<PlanManagerModalProps> = ({
   const [pendingImport, setPendingImport] = useState<ImportPayload | null>(null);
 
   const overlayProps = useOverlayDismiss(onClose);
+  const dialogRef = useDialogFocus<HTMLDivElement>();
 
   if (!isOpen) return null;
 
@@ -100,13 +102,21 @@ export const PlanManagerModal: React.FC<PlanManagerModalProps> = ({
 
   return (
     <div className="modal-overlay" {...overlayProps}>
-      <div className="modal-dialog modal-large" onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={dialogRef}
+        className="modal-dialog modal-large"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="plan-manager-title"
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-header">
           <div>
-            <h3 className="modal-title">Gestor de planificaciones</h3>
+            <h3 className="modal-title" id="plan-manager-title">Gestor de planificaciones</h3>
             <span className="modal-subtitle">Organiza tus días y gestiona copias de seguridad</span>
           </div>
-          <button className="icon-btn" onClick={onClose} title="Cerrar">
+          <button className="icon-btn" onClick={onClose} title="Cerrar" aria-label="Cerrar">
             <X size={18} />
           </button>
         </div>
@@ -212,14 +222,14 @@ export const PlanManagerModal: React.FC<PlanManagerModalProps> = ({
                     <button
                       className="icon-btn"
                       onClick={() => onDuplicatePlan(p.id)}
-                      title="Duplicar día"
+                      title="Duplicar día" aria-label="Duplicar día"
                     >
                       <Copy size={16} />
                     </button>
                     <button
                       className="icon-btn"
                       onClick={() => exportPlanAsJSON(planToView(members, p))}
-                      title="Exportar como JSON"
+                      title="Exportar como JSON" aria-label="Exportar como JSON"
                     >
                       <Download size={16} />
                     </button>
@@ -231,7 +241,7 @@ export const PlanManagerModal: React.FC<PlanManagerModalProps> = ({
                             onDeletePlan(p.id);
                           }
                         }}
-                        title="Eliminar día"
+                        title="Eliminar día" aria-label="Eliminar día"
                         style={{ color: 'var(--fx-red)' }}
                       >
                         <Trash2 size={16} />

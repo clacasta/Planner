@@ -3,6 +3,7 @@ import { Activity, FlexokiColorKey, TimelineRow } from '../domain/types';
 import { formatTime, parseTime } from '../domain/time';
 import { X, Trash2, Check, ArrowRightLeft, Copy } from 'lucide-react';
 import { useOverlayDismiss } from './useOverlayDismiss';
+import { useDialogFocus } from './useDialogFocus';
 import { COLOR_OPTIONS } from './colorOptions';
 
 interface ActivityEditorModalProps {
@@ -52,6 +53,7 @@ export const ActivityEditorModal: React.FC<ActivityEditorModalProps> = ({
   );
 
   const overlayProps = useOverlayDismiss(onClose);
+  const dialogRef = useDialogFocus<HTMLDivElement>();
 
   if (!isOpen || !activity) return null;
 
@@ -132,13 +134,21 @@ export const ActivityEditorModal: React.FC<ActivityEditorModalProps> = ({
 
   return (
     <div className="modal-overlay" {...overlayProps}>
-      <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={dialogRef}
+        className="modal-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="activity-editor-title"
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-header">
           <div>
-            <h3 className="modal-title">{isNew ? 'Nueva actividad' : 'Editar actividad'}</h3>
+            <h3 className="modal-title" id="activity-editor-title">{isNew ? 'Nueva actividad' : 'Editar actividad'}</h3>
             {rowName && <span className="modal-subtitle">Persona: {rowName}</span>}
           </div>
-          <button className="icon-btn" onClick={onClose} title="Cerrar">
+          <button className="icon-btn" onClick={onClose} title="Cerrar" aria-label="Cerrar">
             <X size={18} />
           </button>
         </div>

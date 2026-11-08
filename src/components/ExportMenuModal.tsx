@@ -4,6 +4,7 @@ import { exportPlanAsPNG } from '../export/exportPng';
 import { exportPlanAsJSON } from '../storage/importExport';
 import { X, Printer, Image, FileJson } from 'lucide-react';
 import { useOverlayDismiss } from './useOverlayDismiss';
+import { useDialogFocus } from './useDialogFocus';
 
 interface ExportMenuModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ export const ExportMenuModal: React.FC<ExportMenuModalProps> = ({
   onClose,
 }) => {
   const overlayProps = useOverlayDismiss(onClose);
+  const dialogRef = useDialogFocus<HTMLDivElement>();
 
   if (!isOpen) return null;
 
@@ -39,13 +41,21 @@ export const ExportMenuModal: React.FC<ExportMenuModalProps> = ({
 
   return (
     <div className="modal-overlay" {...overlayProps}>
-      <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={dialogRef}
+        className="modal-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="export-menu-title"
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-header">
           <div>
-            <h3 className="modal-title">Exportar planificación</h3>
+            <h3 className="modal-title" id="export-menu-title">Exportar planificación</h3>
             <span className="modal-subtitle">Elige el formato de salida para "{plan.name}"</span>
           </div>
-          <button className="icon-btn" onClick={onClose} title="Cerrar">
+          <button className="icon-btn" onClick={onClose} title="Cerrar" aria-label="Cerrar">
             <X size={18} />
           </button>
         </div>

@@ -17,7 +17,14 @@ interface ActivityBlockProps {
   onMoveToRow?: (activityId: string, targetRowId: string, newStartMinutes: number) => void;
   /** Avisa de la línea resaltada mientras se arrastra en vertical. */
   onDropTargetChange?: (rowId: string | null) => void;
+  /** Teclado: `Supr` elimina la actividad. */
+  onDelete?: (activityId: string) => void;
+  /** Teclado: `Alt+↑/↓` la pasa a la persona de arriba o de abajo (si existe). */
+  adjacentRowIds?: { up: string | null; down: string | null };
 }
+
+/** Paso de teclado en minutos (el mismo que la cuadrícula). */
+const KEY_STEP = 15;
 
 interface DragPreview {
   startMinutes: number;
@@ -36,6 +43,8 @@ export const ActivityBlock: React.FC<ActivityBlockProps> = ({
   onResize,
   onMoveToRow,
   onDropTargetChange,
+  onDelete,
+  adjacentRowIds,
 }) => {
   const [dragPreview, setDragPreview] = useState<DragPreview | null>(null);
   // Línea bajo el puntero durante el arrastre (null = la propia línea).
@@ -177,6 +186,50 @@ export const ActivityBlock: React.FC<ActivityBlockProps> = ({
     });
   };
 
+  /**
+   * Alternativa de teclado a los gestos (el bloque es enfocable con Tab):
+   * Enter/Espacio editar · ←/→ mover 15 min · Mayús+←/→ cambiar la hora final ·
+   * Alt+↑/↓ pasar a otra persona · Supr eliminar.
+   */
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const { startMinutes, endMinutes } = activity;
+    const duration = endMinutes - startMinutes;
+
+    switch (e.key) {
+      case 'Enter':
+      case ' ':
+        e.preventDefault();
+        onSelect?.(activity);
+        return;
+      case 'Delete':
+      case 'Backspace':
+        e.preventDefault();
+        onDelete?.(activity.id);
+        return;
+      case 'ArrowLeft':
+      case 'ArrowRight': {
+        e.preventDefault();
+        const delta = e.key === 'ArrowLeft' ? -KEY_STEP : KEY_STEP;
+        if (e.shiftKey) {
+          const newEnd = clampMinutes(endMinutes + delta, startMinutes + KEY_STEP, 1440);
+          if (newEnd !== endMinutes) onResize?.(activity.id, startMinutes, newEnd);
+        } else {
+          const newStart = clampMinutes(startMinutes + delta, 0, 1440 - duration);
+          if (newStart !== startMinutes) onMove?.(activity.id, newStart);
+        }
+        return;
+      }
+      case 'ArrowUp':
+      case 'ArrowDown': {
+        if (!e.altKey) return;
+        e.preventDefault();
+        const target = e.key === 'ArrowUp' ? adjacentRowIds?.up : adjacentRowIds?.down;
+        if (target) onMoveToRow?.(activity.id, target, startMinutes);
+        return;
+      }
+    }
+  };
+
   const colorClass = `fx-color-${activity.color}`;
   const formattedTime = `${formatTime(currentStart)} - ${formatTime(currentEnd)}`;
   const isInteracting = dragPreview !== null;
@@ -191,6 +244,12 @@ export const ActivityBlock: React.FC<ActivityBlockProps> = ({
         height: `${height}px`,
       }}
       onPointerDown={handlePointerDownMove}
+      onKeyDown={handleKeyDown}
+      tabIndex={0}
+      role="button"
+      data-activity-id={activity.id}
+      aria-label={`${activity.title}, de ${formattedTime.replace(' - ', ' a ')}${activity.comment ? '. Tiene una nota' : ''}`}
+      aria-describedby="activity-keyboard-help"
       title={`${activity.title} (${formattedTime})${activity.comment ? `\nNota: ${activity.comment}` : ''}`}
     >
       <div

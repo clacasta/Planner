@@ -84,7 +84,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             className="icon-btn"
             onClick={onUndo}
             disabled={!canUndo}
-            title="Deshacer (Ctrl/Cmd+Z)"
+            title="Deshacer (Ctrl/Cmd+Z)" aria-label="Deshacer (Ctrl/Cmd+Z)"
           >
             <Undo2 size={17} />
           </button>
@@ -92,7 +92,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             className="icon-btn"
             onClick={onRedo}
             disabled={!canRedo}
-            title="Rehacer (Ctrl/Cmd+Shift+Z)"
+            title="Rehacer (Ctrl/Cmd+Shift+Z)" aria-label="Rehacer (Ctrl/Cmd+Shift+Z)"
           >
             <Redo2 size={17} />
           </button>
@@ -100,14 +100,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
         {/* Controles de Zoom */}
         <div className="header-group">
-          <button className="icon-btn" onClick={onZoomOut} title="Alejar escala (Zoom -)">
+          <button className="icon-btn" onClick={onZoomOut} title="Alejar escala (Zoom -)" aria-label="Alejar escala (Zoom -)">
             <ZoomOut size={18} />
           </button>
           <span className="zoom-readout">{pixelsPerHour}px/h</span>
-          <button className="icon-btn" onClick={onZoomIn} title="Acercar escala (Zoom +)">
+          <button className="icon-btn" onClick={onZoomIn} title="Acercar escala (Zoom +)" aria-label="Acercar escala (Zoom +)">
             <ZoomIn size={18} />
           </button>
-          <button className="icon-btn" onClick={onResetZoom} title="Restablecer zoom">
+          <button className="icon-btn" onClick={onResetZoom} title="Restablecer zoom" aria-label="Restablecer zoom">
             <RotateCcw size={15} />
           </button>
         </div>

@@ -428,6 +428,13 @@ export function App() {
       `mover una actividad a ${targetName}`
     );
     showUndoToast(`Actividad movida a la línea de ${targetName}.`);
+    // Con teclado el bloque cambia de línea (se vuelve a montar): se le
+    // devuelve el foco para poder seguir moviéndolo.
+    if (document.activeElement?.getAttribute('data-activity-id') === activityId) {
+      requestAnimationFrame(() =>
+        document.querySelector<HTMLElement>(`[data-activity-id="${activityId}"]`)?.focus()
+      );
+    }
   };
 
   /** Desde el editor: mover la actividad (con los cambios del formulario) a otra persona. */
@@ -468,7 +475,13 @@ export function App() {
     const { rowId, isNew } = editingContext;
     // Una actividad nueva aún no está en el día: no hay nada que borrar.
     if (isNew) return;
+    deleteActivity(rowId, activityId);
+  };
+
+  /** Elimina una actividad (desde el editor o con Supr) con aviso deshacible. */
+  const deleteActivity = (rowId: string, activityId: string) => {
     const target = findActivity(currentPlan, rowId, activityId);
+    if (!target) return;
 
     updateActivePlan((p) => removeActivity(p, rowId, activityId), 'eliminar una actividad');
 
@@ -653,6 +666,7 @@ export function App() {
         onMoveActivityToRow={handleMoveActivityToRow}
         dropTargetRowId={dropTargetRowId}
         onDropTargetChange={setDropTargetRowId}
+        onDeleteActivity={deleteActivity}
       />
 
       {/* Sección inferior de notas exclusiva para impresión A4 */}
@@ -691,7 +705,7 @@ export function App() {
               {toast.actionLabel ?? 'Deshacer'}
             </button>
           )}
-          <button className="icon-btn" onClick={() => setToast(null)} title="Cerrar aviso">
+          <button className="icon-btn" onClick={() => setToast(null)} title="Cerrar aviso" aria-label="Cerrar aviso">
             ✕
           </button>
         </div>

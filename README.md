@@ -27,7 +27,7 @@
 ## ✨ Características principales
 
 - **Vista continua de 24 horas (00:00 - 24:00)**: Escala temporal completa con marcas horarias y cuadrícula de 15 minutos.
-- **Líneas familiares personalizables**: Cada miembro de la familia cuenta con su propia línea temporal, color identificativo, botones de reordenación vertical (`▲` y `▼`) y conmutador de visibilidad.
+- **Una sola familia para todos los días**: cada persona tiene su línea temporal, color, botones de reordenación (`▲` y `▼`) y conmutador de visibilidad. Pulsa su nombre para **renombrarla, cambiarle el color o eliminarla**; los cambios se aplican en todos los días a la vez (y se pueden deshacer).
 - **Manipulación interactiva fluida**:
   - **Crear por arrastre**: Haz clic y arrastra sobre cualquier zona libre de una fila para crear una actividad con ajuste automático a 15 min y apertura inmediata del editor.
   - **Mover actividades**: Arrastra horizontalmente cualquier bloque conservando su duración exacta dentro de los límites del día.
@@ -52,7 +52,8 @@
 - **Deshacer / rehacer**: historial de hasta 50 cambios con `Ctrl/Cmd+Z` y `Ctrl/Cmd+Shift+Z`, botones en la cabecera y aviso con acción «Deshacer» al eliminar.
 - **Importación segura**: validación estricta y normalización del JSON, resumen previo (qué contiene y qué se ha corregido o descartado), copia automática del estado actual antes de aplicar y la importación se puede deshacer.
 - **Tus datos, a salvo**: si el almacenamiento guardado está dañado se conserva una copia intacta y se avisa; si no se puede guardar (cuota agotada, navegación privada) aparece un aviso; y si algo falla al dibujar, hay pantalla de error con descarga de emergencia en lugar de página en blanco.
-- **Calidad automatizada**: 46 tests con Vitest sobre la lógica de dominio y almacenamiento, ESLint y `tsc` en CI; el despliegue a GitHub Pages se bloquea si algo falla.
+- **Varias pestañas a la vez**: si cambias algo en una pestaña, las demás cargan esos cambios en lugar de pisarlos al guardar; cada pestaña conserva el día que estaba viendo.
+- **Calidad automatizada**: 84 tests con Vitest sobre la lógica de dominio y almacenamiento, ESLint y `tsc` en CI; el despliegue a GitHub Pages se bloquea si algo falla.
 
 ---
 
@@ -182,9 +183,8 @@ npm run build
 ## ⚠️ Limitaciones conocidas (y siguientes pasos)
 
 - No hay **plantillas ni recurrencia** («todos los martes natación», aplicar un día laborable a lunes-viernes): cada día se duplica a mano.
-- Las personas se pueden **añadir, reordenar y ocultar**, pero todavía **no renombrar, recolorear ni eliminar** desde la interfaz.
 - La vista es **exclusivamente diaria**: no hay vista semanal ni salto rápido entre días.
-- El guardado es por pestaña: si abres la app en **dos pestañas a la vez**, la última en guardar gana.
+- La visibilidad de cada persona es común a todos los días (no se puede ocultar a alguien solo un día concreto).
 - Sin recordatorios ni notificaciones.
 
 ---
@@ -203,7 +203,7 @@ Esta aplicación es **100% estática y de ejecución local**.
 ## ✨ Key Features
 
 - **Continuous 24-Hour View (00:00 - 24:00)**: Full daily timeline with hourly indicators and 15-minute grid lines.
-- **Customizable Family Rows**: Each family member gets a dedicated timeline row, color accent, vertical reordering buttons (`▲` and `▼`), and visibility toggle.
+- **One family across all days**: each person gets a timeline row, color accent, reordering buttons (`▲` and `▼`) and a visibility toggle. Click their name to **rename, recolor or remove** them; changes apply to every day at once (and can be undone).
 - **Smooth Interactive Controls**:
   - **Drag-to-Create**: Click and drag on any empty timeline slot to generate a new block with instant 15-minute snap and editor popup.
   - **Move Activities**: Drag activity blocks horizontally while preserving their exact duration within 00:00–24:00 bounds.
@@ -228,7 +228,8 @@ Esta aplicación es **100% estática y de ejecución local**.
 - **Undo / Redo**: 50-step history with `Ctrl/Cmd+Z` and `Ctrl/Cmd+Shift+Z`, header buttons and an "Undo" action on every deletion.
 - **Safe imports**: strict JSON validation and normalization, a summary of what the file contains (including corrections and dropped items) before anything is applied, an automatic backup of the current state, and undoable imports.
 - **Your data stays yours**: corrupted storage is preserved intact with a clear warning, failed saves (quota, private mode) are surfaced, and a render error shows a recovery screen with an emergency data download instead of a blank page.
-- **Automated quality**: 46 Vitest tests over the domain and storage layers, plus ESLint and `tsc` in CI; the Pages deployment is gated on all of them passing.
+- **Multiple tabs**: a change made in one tab is loaded by the others instead of being overwritten on the next save; each tab keeps the day it was showing.
+- **Automated quality**: 84 Vitest tests over the domain and storage layers, plus ESLint and `tsc` in CI; the Pages deployment is gated on all of them passing.
 
 ---
 
@@ -277,9 +278,8 @@ npm run typecheck && npm run lint && npm run test
 ## ⚠️ Known Limitations
 
 - No **templates or recurrence** (e.g. "swimming every Tuesday").
-- People can be added, reordered and hidden, but **not renamed, recolored or removed** from the UI yet.
 - Daily view only: no week view.
-- Per-tab storage: opening the app in **two tabs** means the last save wins.
+- A person's visibility is shared by all days (you can't hide someone on a single day only).
 
 ---
 

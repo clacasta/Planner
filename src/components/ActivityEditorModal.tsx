@@ -3,6 +3,7 @@ import { Activity, FlexokiColorKey, TimelineRow } from '../domain/types';
 import { formatTime, parseTime } from '../domain/time';
 import { X, Trash2, Check, ArrowRightLeft, Copy } from 'lucide-react';
 import { useOverlayDismiss } from './useOverlayDismiss';
+import { COLOR_OPTIONS } from './colorOptions';
 
 interface ActivityEditorModalProps {
   isOpen: boolean;
@@ -23,17 +24,6 @@ interface ActivityEditorModalProps {
   onDelete: (activityId: string) => void;
   onClose: () => void;
 }
-
-const COLOR_OPTIONS: { key: FlexokiColorKey; label: string; bg: string; border: string }[] = [
-  { key: 'blue', label: 'Azul', bg: 'var(--fx-blue-light)', border: 'var(--fx-blue)' },
-  { key: 'purple', label: 'Morado', bg: 'var(--fx-purple-light)', border: 'var(--fx-purple)' },
-  { key: 'green', label: 'Verde', bg: 'var(--fx-green-light)', border: 'var(--fx-green)' },
-  { key: 'yellow', label: 'Amarillo', bg: 'var(--fx-yellow-light)', border: 'var(--fx-yellow)' },
-  { key: 'orange', label: 'Naranja', bg: 'var(--fx-orange-light)', border: 'var(--fx-orange)' },
-  { key: 'red', label: 'Rojo', bg: 'var(--fx-red-light)', border: 'var(--fx-red)' },
-  { key: 'cyan', label: 'Cian', bg: 'var(--fx-cyan-light)', border: 'var(--fx-cyan)' },
-  { key: 'magenta', label: 'Magenta', bg: 'var(--fx-magenta-light)', border: 'var(--fx-magenta)' },
-];
 
 export const ActivityEditorModal: React.FC<ActivityEditorModalProps> = ({
   isOpen,

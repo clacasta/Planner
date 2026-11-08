@@ -1,6 +1,7 @@
 import { StorageData, SCHEMA_VERSION, STORAGE_KEY } from './schema';
 import { SAMPLE_DAY_PLAN } from '../domain/sampleData';
 import { migrateStorageData } from './migrations';
+import { mergeViewsIntoFamily } from '../domain/family';
 
 /** Prefijo de las copias de seguridad automáticas previas a una importación. */
 export const PRE_IMPORT_KEY = `${STORAGE_KEY}:pre-import`;
@@ -9,11 +10,31 @@ export const PRE_IMPORT_KEY = `${STORAGE_KEY}:pre-import`;
  * Devuelve el estado inicial por defecto con el plan de ejemplo precargado.
  */
 export function getDefaultStorageData(): StorageData {
+  const { members, plans } = mergeViewsIntoFamily([SAMPLE_DAY_PLAN]);
   return {
     schemaVersion: SCHEMA_VERSION,
     activePlanId: SAMPLE_DAY_PLAN.id,
-    plans: [SAMPLE_DAY_PLAN],
+    members,
+    plans,
   };
+}
+
+/** Versión del esquema de unos datos guardados (1 si no la indican). */
+function storedVersion(parsed: unknown): number {
+  const version = (parsed as { schemaVersion?: unknown } | null)?.schemaVersion;
+  return typeof version === 'number' ? version : 1;
+}
+
+/** Clave de la copia intacta de los datos de una versión anterior del esquema. */
+export const legacyBackupKey = (version: number) => `${STORAGE_KEY}:v${version}-backup`;
+
+function preserveLegacyRaw(raw: string, version: number): void {
+  try {
+    const key = legacyBackupKey(version);
+    if (localStorage.getItem(key) === null) localStorage.setItem(key, raw);
+  } catch {
+    // Sin espacio para la copia: la migración sigue igualmente.
+  }
 }
 
 export interface LoadResult {
@@ -81,7 +102,12 @@ export function loadStorageData(): LoadResult {
 
   if (!corrupt) {
     const migrated = migrateStorageData(parsed);
-    if (migrated) return { data: migrated };
+    if (migrated) {
+      // Antes de que el autoguardado escriba el formato nuevo, se conserva una
+      // copia del original de la versión anterior (solo la primera vez).
+      if (storedVersion(parsed) < SCHEMA_VERSION) preserveLegacyRaw(raw, storedVersion(parsed));
+      return { data: migrated };
+    }
   }
 
   const preservedKey = preserveCorruptRaw(raw);

@@ -1,5 +1,5 @@
 import React from 'react';
-import { DayPlan } from '../domain/types';
+import { DayView } from '../domain/types';
 import { exportPlanAsPNG } from '../export/exportPng';
 import { exportPlanAsJSON } from '../storage/importExport';
 import { X, Printer, Image, FileJson } from 'lucide-react';
@@ -7,7 +7,7 @@ import { useOverlayDismiss } from './useOverlayDismiss';
 
 interface ExportMenuModalProps {
   isOpen: boolean;
-  plan: DayPlan;
+  plan: DayView;
   onClose: () => void;
 }
 

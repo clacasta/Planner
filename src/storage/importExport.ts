@@ -1,5 +1,5 @@
 import { StorageData, SCHEMA_VERSION } from './schema';
-import { DayPlan } from '../domain/types';
+import { DayView } from '../domain/types';
 import { parseImportPayload, ImportPayload } from './validate';
 
 /** Fuerza la descarga de un contenido de texto. */
@@ -25,9 +25,11 @@ function sanitizeFilename(name: string, fallback: string): string {
 }
 
 /**
- * Descarga una planificación individual en formato JSON.
+ * Descarga un día suelto en formato JSON, con sus líneas (personas +
+ * actividades): el archivo es autocontenido y lo entienden también versiones
+ * anteriores de la app.
  */
-export function exportPlanAsJSON(plan: DayPlan): void {
+export function exportPlanAsJSON(plan: DayView): void {
   downloadText(
     JSON.stringify(plan, null, 2),
     `${sanitizeFilename(plan.name, 'plan')}.json`,

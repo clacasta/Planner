@@ -1,4 +1,4 @@
-import { DayPlan, FlexokiColorKey } from '../domain/types';
+import { DayView, FlexokiColorKey } from '../domain/types';
 import { calculateLayoutActivities } from '../domain/collisions';
 import { formatTime } from '../domain/time';
 
@@ -35,7 +35,7 @@ function roundRect(
 /**
  * Genera y descarga una imagen PNG en alta definición del planificador diario.
  */
-export function exportPlanAsPNG(plan: DayPlan, pixelsPerHour: number = 70): void {
+export function exportPlanAsPNG(plan: DayView, pixelsPerHour: number = 70): void {
   const visibleRows = plan.rows.filter((r) => r.visible);
   if (visibleRows.length === 0) return;
 

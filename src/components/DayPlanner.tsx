@@ -1,14 +1,16 @@
 import React from 'react';
-import { DayPlan, Activity } from '../domain/types';
+import { DayView, Activity } from '../domain/types';
 import { TimelineHeader } from './TimelineHeader';
 import { TimelineRow } from './TimelineRow';
 
 interface DayPlannerProps {
-  plan: DayPlan;
+  plan: DayView;
   pixelsPerHour: number;
   rowHeaderWidth?: number;
   onMoveRow: (rowId: string, direction: 'up' | 'down') => void;
   onToggleRowVisibility: (rowId: string) => void;
+  /** Abre el editor de la persona (nombre, color, eliminar). */
+  onEditRow: (rowId: string) => void;
   onAddActivity: (rowId: string) => void;
   onSelectActivity: (activity: Activity, rowId: string) => void;
   onMoveActivity: (rowId: string, activityId: string, newStartMinutes: number) => void;
@@ -32,6 +34,7 @@ export const DayPlanner: React.FC<DayPlannerProps> = ({
   rowHeaderWidth = 200,
   onMoveRow,
   onToggleRowVisibility,
+  onEditRow,
   onAddActivity,
   onSelectActivity,
   onMoveActivity,
@@ -62,6 +65,7 @@ export const DayPlanner: React.FC<DayPlannerProps> = ({
             isDropTarget={dropTargetRowId === row.id}
             onMoveRow={onMoveRow}
             onToggleVisibility={onToggleRowVisibility}
+            onEditRow={onEditRow}
             onAddActivity={onAddActivity}
             onSelectActivity={onSelectActivity}
             onMoveActivity={onMoveActivity}
